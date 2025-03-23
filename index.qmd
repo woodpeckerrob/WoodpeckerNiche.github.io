@@ -11,7 +11,7 @@ This website was updated:
 #| echo: false
 #| results: 'asis'
 
-format(Sys.Date(), "%B %d, %Y")
+cat(format(Sys.Date(), "%B %d, %Y"))
 
 ```
 
