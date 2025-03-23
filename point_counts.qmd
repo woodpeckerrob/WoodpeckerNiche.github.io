@@ -5,11 +5,283 @@ editor: visual
 # Point count schedule by month
 
 This page will show you the schedule of each point count by month for each of the three visits needed per month.
+```{r}
+#| echo: false
+#| include: false
+#| message: false
+
+#####    load packages and functions    #####
+
+{
+  library(dplyr)
+  library(ggplot2)
+  library(cowplot)
+  library(knitr)
+  library(tidyr)
+
+}
+
+funk <- function(x){length(unique(x))}
+
+```
+
+```{r}
+#| echo: false
+#| include: false
+#| message: false
+
+#####    load data    #####
+#
+# load each raw data file
+survey <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\order_of_point_count_surveys.csv")
+
+```
 
 ## April
+### Arcadia
+```{r}
+#| echo: false
+#| message: false
+loc <- "ARCA"
+mon <- "April"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Arcadia", "in", mon)))
+```
 
+### Greenwood
+```{r}
+#| echo: false
+#| message: false
+loc <- "GREN"
+mon <- "April"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Greenwood", "in", mon)))
+```
+
+### Livingston
+```{r}
+#| echo: false
+#| message: false
+loc <- "LIVI"
+mon <- "April"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Livingston Place", "in", mon)))
+```
+
+### Tall Timbers
+```{r}
+#| echo: false
+#| message: false
+loc <- "TTRS"
+mon <- "April"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Tall Timbers", "in", mon)))
+```
 
 ## May
 
+### Arcadia
+```{r}
+#| echo: false
+#| message: false
+loc <- "ARCA"
+mon <- "May"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Arcadia", "in", mon)))
+```
+
+### Greenwood
+```{r}
+#| echo: false
+#| message: false
+loc <- "GREN"
+mon <- "May"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Greenwood", "in", mon)))
+```
+
+### Livingston
+```{r}
+#| echo: false
+#| message: false
+loc <- "LIVI"
+mon <- "May"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Livingston Place", "in", mon)))
+```
+
+### Tall Timbers
+```{r}
+#| echo: false
+#| message: false
+loc <- "TTRS"
+mon <- "May"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Tall Timbers", "in", mon)))
+```
+
 ## June
 
+### Arcadia
+```{r}
+#| echo: false
+#| message: false
+loc <- "ARCA"
+mon <- "June"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Arcadia", "in", mon)))
+```
+
+### Greenwood
+```{r}
+#| echo: false
+#| message: false
+loc <- "GREN"
+mon <- "June"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Greenwood", "in", mon)))
+```
+
+### Livingston
+```{r}
+#| echo: false
+#| message: false
+loc <- "LIVI"
+mon <- "June"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Livingston Place", "in", mon)))
+```
+
+### Tall Timbers
+```{r}
+#| echo: false
+#| message: false
+loc <- "TTRS"
+mon <- "June"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Tall Timbers", "in", mon)))
+```
+
+## July
+
+### Arcadia
+```{r}
+#| echo: false
+#| message: false
+loc <- "ARCA"
+mon <- "July"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Arcadia", "in", mon)))
+```
+
+### Greenwood
+```{r}
+#| echo: false
+#| message: false
+loc <- "GREN"
+mon <- "July"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Greenwood", "in", mon)))
+```
+
+### Livingston
+```{r}
+#| echo: false
+#| message: false
+loc <- "LIVI"
+mon <- "July"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Livingston Place", "in", mon)))
+```
+
+### Tall Timbers
+```{r}
+#| echo: false
+#| message: false
+loc <- "TTRS"
+mon <- "July"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Tall Timbers", "in", mon)))
+```
+
+## August
+
+### Arcadia
+```{r}
+#| echo: false
+#| message: false
+loc <- "ARCA"
+mon <- "August"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Arcadia", "in", mon)))
+```
+
+### Greenwood
+```{r}
+#| echo: false
+#| message: false
+loc <- "GREN"
+mon <- "August"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Greenwood", "in", mon)))
+```
+
+### Livingston
+```{r}
+#| echo: false
+#| message: false
+loc <- "LIVI"
+mon <- "August"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Livingston Place", "in", mon)))
+```
+
+### Tall Timbers
+```{r}
+#| echo: false
+#| message: false
+loc <- "TTRS"
+mon <- "August"
+month_data <- survey %>%
+      filter(location == loc, month_name == mon)
+# Print the table for the specific location and month
+print(kable(month_data, caption = paste("Order for Tall Timbers", "in", mon)))
+```
