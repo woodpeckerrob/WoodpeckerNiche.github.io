@@ -22,7 +22,7 @@ There are seven year-round resident woodpeckers in the southeastern United State
 This work focuses on the changes that occur in woodpecker communities after prescribed fire among the seven coocurring species in southeastern pine forests.
 
 
-![all seven woodpeckers](C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\woodpeckers.png)
+![all seven woodpeckers](docs\\data\\woodpeckers.png)
 
 
 
