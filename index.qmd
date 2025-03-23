@@ -9,6 +9,7 @@ This website is meant to aid collaboration between multiple agencies and field t
 This website was updated:
 ```{r}
 #| echo: false
+#| results: 'asis'
 
 format(Sys.Date(), "%B %d, %Y")
 
