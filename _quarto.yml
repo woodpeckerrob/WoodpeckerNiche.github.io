@@ -9,6 +9,7 @@ website:
       - href: index.qmd
         text: Home
       - point_counts.qmd
+      - woodpecker_obs.qmd
 
 format:
   html:
