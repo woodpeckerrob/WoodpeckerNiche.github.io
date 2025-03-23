@@ -2,9 +2,9 @@
   {
     "objectID": "index.html",
     "href": "index.html",
-    "title": "WoodpeckerNiche.github.io",
+    "title": "Project Overview",
     "section": "",
-    "text": "This is a Quarto website.\nTo learn more about Quarto websites visit https://quarto.org/docs/websites.\n\n1 + 1\n\n[1] 2"
+    "text": "This website is meant to aid collaboration between multiple agencies and field technicians for the purposes of data collection and data interpretation. This website will coordinate surveys and highlight progress made on a weekly to bi-weekly update schedule.\nThis website was updated:\n[1] “March 23, 2025”"
   },
   {
     "objectID": "about.html",
@@ -12,5 +12,47 @@
     "title": "About",
     "section": "",
     "text": "About this site\n\n1 + 1\n\n[1] 2"
+  },
+  {
+    "objectID": "point_counts.html",
+    "href": "point_counts.html",
+    "title": "Point Counts",
+    "section": "",
+    "text": "Point count schedule by month ## This page will show you the schedule of each point count by month for each of the three visits needed per month."
+  },
+  {
+    "objectID": "index.html#website-description",
+    "href": "index.html#website-description",
+    "title": "Project Overview",
+    "section": "",
+    "text": "This website is meant to aid collaboration between multiple agencies and field technicians for the purposes of data collection and data interpretation. This website will coordinate surveys and highlight progress made on a weekly to bi-weekly update schedule.\nThis website was updated:\n[1] “March 23, 2025”"
+  },
+  {
+    "objectID": "index.html#project-description",
+    "href": "index.html#project-description",
+    "title": "Project Overview",
+    "section": "Project Description",
+    "text": "Project Description\nThere are seven year-round resident woodpeckers in the southeastern United States. Like most woodpeckers, these species exhibit similar forms and exist in similar environments. Under competatie exclusion, it is unlikely that these similar species should be able to coexist unless they utilize separate parts of the environment. Most previous research has focused on this ‘niche partitioning’ of their nesting habitat but little work has been done on how they partition foraging habitat.\nThis work focuses on the changes that occur in woodpecker communities after prescribed fire among the seven coocurring species in southeastern pine forests."
+  },
+  {
+    "objectID": "point_counts.html#april",
+    "href": "point_counts.html#april",
+    "title": "Point Counts",
+    "section": "April",
+    "text": "April"
+  },
+  {
+    "objectID": "point_counts.html#may",
+    "href": "point_counts.html#may",
+    "title": "Point Counts",
+    "section": "May",
+    "text": "May"
+  },
+  {
+    "objectID": "point_counts.html#june",
+    "href": "point_counts.html#june",
+    "title": "Point Counts",
+    "section": "June",
+    "text": "June"
   }
 ]
