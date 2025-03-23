@@ -2,12 +2,102 @@
 title: "Woodpecker Observations"
 ---
 
-## Woodpecker obsvation data collected thus far.
-
-
+# Woodpecker obsvation data collected thus far.
 
 ```{r}
 #| echo: false
-#C:\Users\rmeyer\Documents\niche_quarto\WoodpeckerNiche.github.io\docs\data\raw
+#| include: false
+#| message: false
+
+#####    load packages and functions    #####
+
+{
+  library(dplyr)
+  library(ggplot2)
+  library(cowplot)
+  library(plot3D)
+  library("plot3Drgl")
+  library(knitr)
+  library(tidyr)
+
+}
+
+funk <- function(x){length(unique(x))}
+
+```
+```{r}
+#| echo: false
+#| include: false
+#| message: false
+
+#####    load data    #####
+#
+# load each raw data file
+parent_form <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\form-1__woodpecker-obs.csv")
+child_form <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\form-2__behaviors.csv")
+# merge them into one dataframe
+
+df <- merge(x=parent_form,y=child_form,by.x="ec5_uuid",by.y="ec5_parent_uuid")
+
+# remove columns no longer needed
+{
+  df$created_at.x <- NULL
+  df$created_at.y <- NULL
+  df$uploaded_at.x <- NULL
+  df$uploaded_at.y <- NULL
+  df$title.x <- NULL
+  df$title.y <- NULL
+  df$ec5_uuid.y <- NULL
+  df$ec5_uuid <- NULL
+  #provide a unique ref number
+  df$obs_id <- 1:nrow(df)
+}
+
+# remove any observation that is not a foraging observation
+
+df <- df|>
+  filter(X9_Foraging_type !="Other (includes not foraging)")
+df$X6_date <- as.Date(df$X6_date, format = "%m/%d/%Y")
+df$month <- as.numeric(format(df$X6_date, "%m"))
+df$X3_Plot_number <- as.numeric(df$X3_Plot_number)
+```
+## observations by plot, species and month
+
+```{r}
+#| echo: false
+#| message: false
+
+
+# Summarize the data by month, species, and plot
+summary_table <- df %>%
+  group_by(month, X8_Species, X3_Plot_number) %>%
+  summarise(count = n(), .groups = 'drop')
+
+# Pivot the data into a wide format: each plot is a column, and each species is a row
+pivoted_data <- summary_table %>%
+  pivot_wider(names_from = X3_Plot_number, values_from = count, values_fill = list(count = 0))
+
+# Function to display a pretty table for each month
+create_pretty_table <- function(month_data) {
+  # Reorder columns to ensure plots are in numerical order from 1 to 32
+  plot_columns <- grep("^\\d+$", names(month_data), value = TRUE)  # Extract plot columns (which are numeric)
+  ordered_columns <- c("month", "X8_Species", sort(as.numeric(plot_columns)))  # Sort plot columns numerically
+  
+  # Reorder the data based on sorted plot columns
+  month_data <- month_data %>% select(all_of(ordered_columns))
+
+  # Create a pretty table with kable and extract month from X6_date for the caption
+  kable(month_data, caption = paste("Species Count by Plot for", unique(format(month_data$X6_date, "%B"))))
+}
+
+# List of unique months in the data
+unique_months <- unique(df$month)
+
+# Loop through each month, subset the data, and create a table for each
+for (month in unique_months) {
+  month_data <- pivoted_data %>% filter(month == month)
+  print(create_pretty_table(month_data))
+}
+
 
 ```
