@@ -1,0 +1,13 @@
+---
+title: "Point_count_orders"
+editor: visual
+---
+Point count schedule by month
+##This page will show you the schedule of each point count by month for each of the three visits needed per month.
+
+#April
+
+#May
+
+#June
+

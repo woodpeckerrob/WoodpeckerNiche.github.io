@@ -3,16 +3,16 @@ project:
   output-dir: docs
 
 website:
-  title: "WoodpeckerNiche.github.io"
+  title: "Woodpecker Niche Project"
   navbar:
     left:
       - href: index.qmd
         text: Home
-      - about.qmd
+      - point_counts.qmd
 
 format:
   html:
-    theme: cosmo
+    theme: sandstone
     css: styles.css
     toc: true
 
