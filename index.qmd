@@ -15,7 +15,7 @@ There are seven year-round resident woodpeckers in the southeastern United State
 This work focuses on the changes that occur in woodpecker communities after prescribed fire among the seven coocurring species in southeastern pine forests.
 
 
-![all seven woodpeckers](docs\\data\\woodpeckers.png)
+![all eight woodpeckers (yellow-bellied sapsuckers migrate and are absent during breeding season)](docs\\data\\woodpeckers.png)
 
 This website was updated:
 ```{r}
