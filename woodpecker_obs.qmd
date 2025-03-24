@@ -109,9 +109,9 @@ zero_sum_columns <- colnames(tab)[colSums(tab[, -1]) == 0]  # Exclude non-numeri
 
 # Print column names that have a sum of 0
 if (length(zero_sum_columns) > 0) {
-  paste("Column(s) with no observations include: ", paste(zero_sum_columns, collapse = ", "))
+  cat(paste("Column(s) with no observations include: ", paste(zero_sum_columns, collapse = ", ")))
 } else {
-  "Each plot has at least 1 observation of a woodpecker this month."
+  cat("Each plot has at least 1 observation of a woodpecker this month.")
 }
 ```
 
