@@ -2,7 +2,7 @@
 title: "Woodpecker Observations"
 ---
 
-# Woodpecker obsvation data collected thus far.
+Woodpecker observation data collected thus far. Data is arranged by plot, species, and month.
 
 ```{r}
 #| echo: false
@@ -61,12 +61,11 @@ df$X6_date <- as.Date(df$X6_date, format = "%m/%d/%Y")
 df$month <- as.numeric(format(df$X6_date, "%m"))
 df$X3_Plot_number <- as.numeric(df$X3_Plot_number)
 ```
-## observations by plot, species and month
 
 ```{r}
 #| echo: false
 #| message: false
-
+#| include: false
 
 # Summarize the data by month, species, and plot
 summary_table <- df %>%
@@ -77,27 +76,49 @@ summary_table <- df %>%
 pivoted_data <- summary_table %>%
   pivot_wider(names_from = X3_Plot_number, values_from = count, values_fill = list(count = 0))
 
-# Function to display a pretty table for each month
-create_pretty_table <- function(month_data) {
-  # Reorder columns to ensure plots are in numerical order from 1 to 32
-  plot_columns <- grep("^\\d+$", names(month_data), value = TRUE)  # Extract plot columns (which are numeric)
-  ordered_columns <- c("month", "X8_Species", sort(as.numeric(plot_columns)))  # Sort plot columns numerically
-  
-  # Reorder the data based on sorted plot columns
-  month_data <- month_data %>% select(all_of(ordered_columns))
 
-  # Create a pretty table with kable and extract month from X6_date for the caption
-  kable(month_data, caption = paste("Species Count by Plot for", unique(format(month_data$X6_date, "%B"))))
+# Columns we expect to have (1:32)
+expected_columns <- as.character(1:32)
+
+# Get the columns that are currently in the dataframe
+current_columns <- colnames(pivoted_data)
+
+# Identify the missing columns
+missing_columns <- setdiff(expected_columns, current_columns)
+
+# Add missing columns with all values set to 0
+for (col in missing_columns) {
+  pivoted_data[[col]] <- 0
 }
-
-# List of unique months in the data
-unique_months <- unique(df$month)
-
-# Loop through each month, subset the data, and create a table for each
-for (month in unique_months) {
-  month_data <- pivoted_data %>% filter(month == month)
-  print(create_pretty_table(month_data))
-}
-
+ordered_columns <- c("month", "X8_Species", sort(as.numeric( grep("^\\d+$", names(pivoted_data), value = TRUE))))  # Sort plot columns numerically
+pivoted_data <- pivoted_data %>% select(all_of(ordered_columns))
+colnames(pivoted_data) <- c("month","Species",1:32)
 
 ```
+
+# April Observations
+
+```{r}
+#| echo: false
+#| message: false
+
+tab <- subset(pivoted_data,pivoted_data$month==3)
+tab$month <- NULL
+# Check columns with sum equal to 0
+zero_sum_columns <- colnames(tab)[colSums(tab[, -1]) == 0]  # Exclude non-numeric columns
+
+# Print column names that have a sum of 0
+if (length(zero_sum_columns) > 0) {
+  paste("Column(s) with no observations include: ", paste(zero_sum_columns, collapse = ", "))
+} else {
+  "Each plot has at least 1 observation of a woodpecker this month."
+}
+```
+
+```{r}
+print(kable(tab, caption = paste("April observations by species and plot")))
+```
+
+# May Observations
+
+Coming soon...

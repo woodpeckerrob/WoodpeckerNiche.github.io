@@ -6,6 +6,17 @@ title: "Project Overview"
 
 This website is meant to aid collaboration between multiple agencies and field technicians for the purposes of data collection and data interpretation. This website will coordinate surveys and highlight progress made on a weekly to bi-weekly update schedule.
 
+
+
+## Project Description
+
+There are seven year-round resident woodpeckers in the southeastern United States. Like most woodpeckers, these species exhibit similar forms and exist in similar environments. Under competative exclusion, it is unlikely that these similar species should be able to coexist unless they utilize separate parts of the environment. Most previous research has focused on this 'niche partitioning' of their nesting habitat but little work has been done on how they partition foraging habitat. 
+
+This work focuses on the changes that occur in woodpecker communities after prescribed fire among the seven coocurring species in southeastern pine forests.
+
+
+![all seven woodpeckers](docs\\data\\woodpeckers.png)
+
 This website was updated:
 ```{r}
 #| echo: false
@@ -15,21 +26,3 @@ cat(format(Sys.Date(), "%B %d, %Y"))
 
 ```
 
-## Project Description
-
-There are seven year-round resident woodpeckers in the southeastern United States. Like most woodpeckers, these species exhibit similar forms and exist in similar environments. Under competatie exclusion, it is unlikely that these similar species should be able to coexist unless they utilize separate parts of the environment. Most previous research has focused on this 'niche partitioning' of their nesting habitat but little work has been done on how they partition foraging habitat. 
-
-This work focuses on the changes that occur in woodpecker communities after prescribed fire among the seven coocurring species in southeastern pine forests.
-
-
-![all seven woodpeckers](docs\\data\\woodpeckers.png)
-
-
-
-```{r}
-#| echo: false
-#| message: false
-#| include: false
-
-1 + 1
-```
