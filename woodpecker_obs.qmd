@@ -116,6 +116,8 @@ if (length(zero_sum_columns) > 0) {
 ```
 
 ```{r}
+#| echo: false
+#| message: false
 print(kable(tab, caption = paste("April observations by species and plot")))
 ```
 
