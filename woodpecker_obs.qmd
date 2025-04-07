@@ -96,7 +96,7 @@ colnames(pivoted_data) <- c("month","Species",1:32)
 
 ```
 
-# April Observations
+# March Observations
 
 ```{r}
 #| echo: false
@@ -121,7 +121,7 @@ if (length(zero_sum_columns) > 0) {
 print(kable(tab, caption = paste("April observations by species and plot")))
 ```
 
-# May Observations
+# April Observations
 
 ```{r}
 #| echo: false
