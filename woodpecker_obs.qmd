@@ -19,6 +19,7 @@ Woodpecker observation data collected thus far. Data is arranged by plot, specie
   library("plot3Drgl")
   library(knitr)
   library(tidyr)
+  library(tidyverse)
 
 }
 
@@ -96,6 +97,70 @@ colnames(pivoted_data) <- c("month","Species",1:32)
 
 ```
 
+
+```{r}
+#| echo: false
+#| message: false
+#| include: false
+
+# Plotting species composition by plot thus far
+
+
+# Step 1: Combine across months
+tab_combined <- pivoted_data %>%
+  group_by(Species) %>%
+  summarise(across(`1`:`32`, sum, na.rm = TRUE))
+
+# Step 2: Reshape to long format
+tab_long <- tab_combined %>%
+  pivot_longer(
+    cols = -Species,
+    names_to = "Plot",
+    values_to = "Count"
+  )
+
+# Step 3: Convert Plot to factor
+tab_long$Plot <- factor(tab_long$Plot, levels = as.character(1:32))
+
+# Step 4: Calculate percentages and totals
+tab_pct <- tab_long %>%
+  group_by(Plot) %>%
+  mutate(Percent = Count / sum(Count, na.rm = TRUE) * 100) %>%
+  ungroup()
+
+# Step 5: Get total counts per plot for labels
+plot_totals <- tab_long %>%
+  group_by(Plot) %>%
+  summarise(TotalCount = sum(Count, na.rm = TRUE))
+
+# Step 6: Plot with total count labels
+sp_comp_plot <- ggplot(tab_pct, aes(x = Plot, y = Percent, fill = Species)) +
+  geom_bar(stat = "identity") +
+  geom_text(data = plot_totals, aes(x = Plot, y = 102, label = TotalCount),
+            inherit.aes = FALSE, size = 3, vjust = 0) +
+  scale_fill_brewer(palette = "Paired") +
+  labs(
+    title = "Woodpecker Composition by Plot (All Months Combined)",
+    subtitle = "Total count shown above each bar",
+    x = "Plot",
+    y = "Percentage of Observations"
+  ) +
+  coord_cartesian(ylim = c(0, 110)) +  # Give space above 100% for the labels
+  scale_y_continuous(expand=c(0, 0))+ 
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+sp_comp_plot
+```
+
 # March Observations
 
 ```{r}
@@ -149,3 +214,45 @@ print(kable(tab, caption = paste("April observations by species and plot")))
 # May Observations
 
 ## Coming soon...
+
+
+
+```{r}
+#| echo: false
+#| message: false
+#| include: false
+
+data_encoded <- cbind(
+  df[, c("X15_time_spent_sec")],  # Keep the continuous columns
+  model.matrix(~ X9_Foraging_type - 1, df), # One-hot encoding for 'species'
+  model.matrix(~ X10_Substrate - 1, df), # One-hot encoding for 'condition'
+  model.matrix(~ X11_where - 1, df) # One-hot encoding for 'condition'
+
+)
+
+# Standardize the data
+data_scaled <- scale(data_encoded)
+
+pca_result <- prcomp(data_scaled, center = TRUE, scale. = TRUE)
+
+# Create a data frame for plotting
+pca_df <- data.frame(pca_result$x)
+```
+
+
+```{r}
+#| echo: false
+#| message: false
+#| include: false
+
+#plotting the PCA
+ggplot(pca_df, aes(x = PC1, y = PC2)) +
+  geom_point() +
+  ggtitle("PCA of Species Data with Multiple Columns") +
+  xlab("Principal Component 1") +
+  ylab("Principal Component 2")
+
+```
+
+
+
