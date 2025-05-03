@@ -213,6 +213,31 @@ print(kable(tab, caption = paste("April observations by species and plot")))
 
 # May Observations
 
+```{r}
+#| echo: false
+#| message: false
+
+tab <- subset(pivoted_data,pivoted_data$month==5)
+tab$month <- NULL
+# Check columns with sum equal to 0
+zero_sum_columns <- colnames(tab[, -1])[colSums(tab[, -1]) == 0]  # Exclude non-numeric columns
+
+# Print column names that have a sum of 0
+if (length(zero_sum_columns) > 0) {
+  cat(paste("Plot(s) with no observations include: ", paste(zero_sum_columns, collapse = ", ")))
+} else {
+  cat("Each plot has at least 1 observation of a woodpecker this month.")
+}
+```
+
+```{r}
+#| echo: false
+#| message: false
+print(kable(tab, caption = paste("April observations by species and plot")))
+```
+
+# June Observations
+
 ## Coming soon...
 
 
