@@ -2,9 +2,10 @@
 title: "Point Counts"
 editor: visual
 ---
-# Point count schedule by month
+# Point count results
 
-This page will show you the schedule of each point count by month for each of the three visits needed per month.
+Avian communities are often sampled with point count surveys, and for good reason. Point counts in this study will provide information on the grater cavity-nesting bird community which is important for understanding competition and community assemblages as they relate to environmental variables. Below are some preliminary results on each of the four sites with simple models using the Distance package in R. These models vary detection probability by species only and provide estimates on species abundance with associated confidence intervals.
+
 ```{r}
 #| echo: false
 #| include: false
@@ -18,10 +19,15 @@ This page will show you the schedule of each point count by month for each of th
   library(cowplot)
   library(knitr)
   library(tidyr)
-
+  library(Distance)
+  library(purrr)
+  library(lubridate)
+  library(ggplot2)
 }
 
 funk <- function(x){length(unique(x))}
+
+
 
 ```
 
@@ -34,8 +40,320 @@ funk <- function(x){length(unique(x))}
 #
 # load each raw data file
 survey <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\order_of_point_count_surveys.csv")
+pc <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\point_count_data.csv")
+sites <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\point_count_id_site_crosswalk.csv")
+truncation_dist <- 200
+#edit data to have desired columns
+pc <- pc[pc$real_distance_m <= truncation_dist, ]
+pc <- pc %>%
+  filter(!is.na(real_distance_m), real_distance_m <= truncation_dist) %>%
+  filter(!species %in% c("YBSA", "WODU"))
+
+# add new columns
+pc <- pc %>%
+  # Convert date to Date format
+  mutate(date = mdy(date)) %>%
+  
+  # Create visit number per point_id based on date order
+  group_by(point_id, date) %>%
+  mutate(visit_date = first(date)) %>%   # Ensures a single date per group
+  ungroup() %>%
+  arrange(point_id, visit_date) %>%
+  group_by(point_id) %>%
+  mutate(visit = dense_rank(visit_date)) %>%
+  
+  # Calculate max number of visits per point_id
+  mutate(repeats = (n_distinct(visit_date))) %>% #effort in hours
+
+  mutate(Effort = ((n_distinct(visit_date))*10)/60) %>% #effort in hours
+  ungroup()
+pc <- na.omit(pc)
+pc$sky <- as.factor(pc$sky)
+pc$wind <- as.factor(pc$wind)
+pc <- merge(x=pc,y=sites,by="point_id")
+```
+
+```{r}
+#| echo: false
+#| include: false
+#| message: false
+
+# calculate results from point counts
+pc_ds <- data.frame(
+  object = 1:nrow(pc),
+  Region.Label = as.factor(pc$site_name),
+  Sample.Label = as.factor(pc$point_id),
+  distance = pc$real_distance_m,
+  species = as.factor(pc$species),
+  sky = pc$sky,
+  wind = pc$wind,
+  temp=pc$temp,
+  Effort=pc$Effort,
+  visit=pc$visit,
+  repeats=pc$repeats
+)
+pc_ds$Area <- 12.57 #ha
+pc_ds$object <- seq(1,nrow(pc_ds),1)
+pc_ds <- na.omit(pc_ds)
+pc_ds$sky <- as.factor(pc_ds$sky)
+pc_ds$wind <- as.factor(pc_ds$wind)
+# Fit half-normal model with detection covariates
+truncation_dist <- 200  # Max detection distance in meters
+area_ha <- pi * (truncation_dist^2) / 10000  # Survey area in hectares
+
+
+#model to see what set of variables are best
+convunit <- convert_units("meter", NULL, "hectare") #NULL is for point counts
+#all.birds.swt <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
+#                formula=~species+sky+wind+temp, truncation = truncation_dist)
+
+#all.birds.sw  <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
+#                formula=~species+sky+wind, truncation = truncation_dist)
+
+#all.birds.st  <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
+#                formula=~species+sky+temp, truncation = truncation_dist)
+
+#all.birds.tw  <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
+#                formula=~species+wind+temp, truncation = truncation_dist)
+
+#all.birds.s   <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
+#                formula=~species+sky, truncation = truncation_dist)
+
+#all.birds.t   <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
+#                formula=~species+temp, truncation = truncation_dist)
+#all.birds.w   <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
+#                formula=~species+wind, truncation = truncation_dist)
+#all.birds.n   <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
+#                formula=~species, truncation = truncation_dist)
+
+#aic_table <- AIC(all.birds.swt,                             # global model
+#                 all.birds.sw,all.birds.st,all.birds.tw,    # 2 cov only models
+#                 all.birds.s,all.birds.t,all.birds.w,       # 1 cov only models
+#                 all.birds.n                                # null model
+#                 )
+
+#aic_table_df <- as.data.frame(aic_table) %>%
+#  tibble::rownames_to_column("Model") %>%
+#  arrange(AIC)
+
+#print(aic_table_df)
+
+#take best model and subset by site
+
+#best_mod <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
+#                formula=~species, truncation = truncation_dist)
+
+
+
+## subset for each site
+
+
+# Arcadia
+pc_ds_a <- subset(pc_ds,pc_ds$Region.Label=="Arcadia")
+pc_ds_a$object <- seq(1,nrow(pc_ds_a),1)
+arca <- ds(data = pc_ds_a, key="hn", convert_units = convunit,
+           transect = "point", truncation = truncation_dist,
+           formula=~species)
+arca.ests <- dht2(ddf=arca, flatfile=pc_ds,transect = "point",
+                  strat_formula = ~species, convert_units = convunit,
+                  stratification = "object") 
+# Extract abundance estimates as a data frame
+temp <- data.frame(
+  species = arca.ests$species,
+  est = arca.ests$Abundance,
+  lower = arca.ests$LCI,
+  upper = arca.ests$UCI)
+
+# Separate out the 'Total' row
+arca_total <- temp %>% filter(species == "Total")
+
+# Remove the 'Total' row from main data
+temp <- temp %>% filter(species != "Total")
+
+
+# Plot in ggplot2
+arca_plot <- ggplot(temp, aes(x = species, y = est)) +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  labs(title = "Arcadia",
+       x = "Species",
+       y = "Abundance") +
+  scale_y_continuous(limits = c(0, 15), expand = c(0, 0))+
+  coord_flip() +  # Optional: flip axes for readability
+  theme_bw()
+
+# Greenwood
+pc_ds_g <- subset(pc_ds,pc_ds$Region.Label=="Greenwood")
+pc_ds_g$object <- seq(1,nrow(pc_ds_g),1)
+gren <- ds(data = pc_ds_g, key="hn", convert_units = convunit,
+           transect = "point", truncation = truncation_dist,
+           formula=~species)
+
+gren.ests <- dht2(ddf=gren, flatfile=pc_ds,transect = "point",
+                  strat_formula = ~species, convert_units = convunit,
+                  stratification = "object") 
+# Extract abundance estimates as a data frame
+temp <- data.frame(
+  species = gren.ests$species,
+  est = gren.ests$Abundance,
+  lower = gren.ests$LCI,
+  upper = gren.ests$UCI)
+
+# Separate out the 'Total' row
+gren_total <- temp %>% filter(species == "Total")
+
+# Remove the 'Total' row from main data
+temp <- temp %>% filter(species != "Total")
+
+
+# Plot in ggplot2
+gren_plot <- ggplot(temp, aes(x = species, y = est)) +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  labs(title = "Greenwood",
+       x = "Species",
+       y = "Abundance") +
+  scale_y_continuous(limits = c(0, 15), expand = c(0, 0))+
+  coord_flip() +  # Optional: flip axes for readability
+  theme_bw()
+# Livingston
+pc_ds_l <- subset(pc_ds,pc_ds$Region.Label=="Livingston Place")
+pc_ds_l$object <- seq(1,nrow(pc_ds_l),1)
+livi <- ds(data = pc_ds_l, key="hn", convert_units = convunit,
+           transect = "point", truncation = truncation_dist,
+           formula=~species)
+
+livi.ests <- dht2(ddf=livi, flatfile=pc_ds,transect = "point",
+                  strat_formula = ~species, convert_units = convunit,
+                  stratification = "object") 
+# Extract abundance estimates as a data frame
+temp <- data.frame(
+  species = livi.ests$species,
+  est = livi.ests$Abundance,
+  lower = livi.ests$LCI,
+  upper = livi.ests$UCI)
+
+# Separate out the 'Total' row
+livi_total <- temp %>% filter(species == "Total")
+
+# Remove the 'Total' row from main data
+temp <- temp %>% filter(species != "Total")
+
+
+# Plot in ggplot2
+livi_plot <- ggplot(temp, aes(x = species, y = est)) +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  labs(title = "Livingston Place",
+       x = "Species",
+       y = "Abundance") +
+  scale_y_continuous(limits = c(0, 15), expand = c(0, 0))+
+  coord_flip() +  # Optional: flip axes for readability
+  theme_bw()
+
+# Tall Timbers
+pc_ds_t <- subset(pc_ds,pc_ds$Region.Label=="Tall Timbers")
+pc_ds_t$object <- seq(1,nrow(pc_ds_t),1)
+ttrs <- ds(data = pc_ds_t, key="hn", convert_units = convunit,
+           transect = "point", truncation = truncation_dist,
+           formula=~species)
+
+ttrs.ests <- dht2(ddf=ttrs, flatfile=pc_ds,transect = "point",
+                  strat_formula = ~species, convert_units = convunit,
+                  stratification = "object") 
+# Extract abundance estimates as a data frame
+temp <- data.frame(
+  species = ttrs.ests$species,
+  est = ttrs.ests$Abundance,
+  lower = ttrs.ests$LCI,
+  upper = ttrs.ests$UCI)
+
+# Separate out the 'Total' row
+ttrs_total <- temp %>% filter(species == "Total")
+
+# Remove the 'Total' row from main data
+temp <- temp %>% filter(species != "Total")
+
+
+# Plot in ggplot2
+ttrs_plot <- ggplot(temp, aes(x = species, y = est)) +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  labs(title = "Tall Timbers",
+       x = "Species",
+       y = "Abundance") +
+  scale_y_continuous(limits = c(0, 15), expand = c(0, 0))+
+  coord_flip() +  # Optional: flip axes for readability
+  theme_bw()
+
+
+# arrange data to look at grand totals of cavity nesters across sites
+
+temp <- rbind(arca_total,gren_total,livi_total,ttrs_total)
+temp$site <- c("Arcadia","Greenwood","Livingston Place","Tall Timbers")
+
+# Plot in ggplot2
+total_plot <- ggplot(temp, aes(x = site, y = est)) +
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  labs(title = "",
+       x = "",
+       y = "Abundance") +
+  scale_y_continuous(limits = c(0, 45), expand = c(0, 0))+
+  coord_flip() +  # Optional: flip axes for readability
+  theme_bw()
+
 
 ```
+## Summary plots for results thus far...
+
+```{r}
+#| echo: false
+#| message: false
+
+#plotting
+
+
+#simple plot
+
+#plot(all.birds, showpoints=FALSE, main="Detection distances at point counts\nspecies as covariate")
+#add.df.covar.line(all.birds, data=data.frame(species="NOFL"), lwd=3, lty=1, col="blue")
+#add.df.covar.line(all.birds, data=data.frame(species="DOWO"), lwd=3, lty=1, col="darkgreen")
+#add.df.covar.line(all.birds, data=data.frame(species="RBWO"), lwd=3, lty=1, col="brown")
+#add.df.covar.line(all.birds, data=data.frame(species="RCWO"), lwd=3, lty=1, col="salmon")
+#add.df.covar.line(all.birds, data=data.frame(species="RHWO"), lwd=3, lty=1, col="red")
+#add.df.covar.line(all.birds, data=data.frame(species="PIWO"), lwd=3, lty=1, col="black")
+#legend("topright", legend=c("NOFL", "DOWO", "RBWO", "RCWO","RHWO","PIWO"),
+#       lwd=3, lty=1, col=c("blue", "darkgreen", "brown", "salmon","red","black"))
+
+
+#cowplot
+
+plot_grid(arca_plot, gren_plot, livi_plot, ttrs_plot,
+          nrow = 2, ncol = 2)#  for letters A-D use: labels = "AUTO"
+```
+
+This plot (above) shows the abundance estimates for cavity nesting species at each study site individually. This data represents only March and April 2025.
+
+## Totals across sites
+
+```{r}
+#| echo: false
+#| message: false
+
+#plotting
+total_plot
+
+
+```
+
+The plot (above) shows total cavity nesting bird abundances at each site.
+
+
+# Point count schedule by month
+
+The following are the scheduled order of point counts to conduct per visit to the site. This ensures that community data obtained isn't biased by lower or higher detections thoughout the day. 
+
 
 ## April
 ### Arcadia
