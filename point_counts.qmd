@@ -23,6 +23,9 @@ Avian communities are often sampled with point count surveys, and for good reaso
   library(purrr)
   library(lubridate)
   library(ggplot2)
+  library(unmarked)
+  library(lubridate)
+
 }
 
 funk <- function(x){length(unique(x))}
@@ -349,6 +352,117 @@ total_plot
 
 The plot (above) shows total cavity nesting bird abundances at each site.
 
+# How long should a point count be?
+
+In this study we are doing 10min point counts. It could be that 10min is too long, and most of the species we detect will be detected in a shorter amount of time. If so, we may be able to do shorter point counts but we don't want to risk lowering our detection of birds that are more difficult to detect (those that are quiet or rare). Let's look at a simple species accumulation curve...
+
+```{r}
+#| echo: false
+#| include: false
+#| message: false
+
+#how long is long enough for a point count? an analysis in unmarked
+
+
+# convert mm:ss to numeric minutes
+pc_clean <- pc %>%
+  mutate(
+    time_mins = as.numeric(ms(time_detected)) / 60  
+  )
+
+# Step 1: Keep only the FIRST detection per species per visit (point_id + visit)
+pc_unique <- pc_clean %>%
+  arrange(point_id, visit, species, time_mins) %>%
+  group_by(point_id, visit, species) %>%
+  slice_head(n = 1) %>%  # keep only first detection per species per visit
+  ungroup()
+
+# Step 2: Bin by time again
+pc_binned <- pc_unique %>%
+  mutate(time_bin = cut(time_mins,
+                        breaks = seq(0, 10, by = 2),
+                        labels = c("0-2", "2-4", "4-6", "6-8", "8-10"),
+                        right = FALSE))
+
+# Step 3: Count number of species per visit per time bin
+richness_per_visit <- pc_binned %>%
+  group_by(point_id, visit, time_bin) %>%
+  summarise(richness = n_distinct(species), .groups = "drop")
+
+# Step 4: Pivot and calculate cumulative richness
+richness_wide <- richness_per_visit %>%
+  pivot_wider(names_from = time_bin, values_from = richness, values_fill = 0)
+
+
+#
+# Time bin order
+time_bin_order <- c("0-2", "2-4", "4-6", "6-8", "8-10")
+
+# Extract just the time bin values, do row-wise cumsum, and bind back
+richness_cum <- richness_wide %>%
+  select(point_id, visit, all_of(time_bin_order)) %>%
+  mutate(across(all_of(time_bin_order), as.numeric))  # ensure numeric just in case
+
+# Apply row-wise cumsum to only the bin columns
+cumulative_bins <- t(apply(richness_cum[time_bin_order], 1, cumsum))  # returns a matrix
+
+# Bind back to original identifiers
+richness_cum_final <- bind_cols(
+  richness_wide %>% select(point_id, visit),
+  as.data.frame(cumulative_bins)
+)
+
+# Set correct column names
+colnames(richness_cum_final)[-(1:2)] <- time_bin_order
+
+# Check
+head(richness_cum_final)
+
+
+#
+
+
+
+# Step 5: Average across visits per point
+richness_mean_by_plot <- richness_cum_final %>%
+  group_by(point_id) %>%
+  summarise(across(`0-2`:`8-10`, mean), .groups = "drop")
+
+# Reshape to long format for plotting
+richness_long <- richness_mean_by_plot %>%
+  pivot_longer(cols = `0-2`:`8-10`, names_to = "TimeBin", values_to = "MeanRichness")
+
+# Ensure time bins are ordered properly
+richness_long$TimeBin <- factor(richness_long$TimeBin, levels = c("0-2", "2-4", "4-6", "6-8", "8-10"))
+
+richness_overall <- richness_long %>%
+  group_by(TimeBin) %>%
+  summarise(MeanRichness = mean(MeanRichness))
+
+
+
+```
+
+
+```{r}
+#| echo: false
+#| message: false
+
+#plot the curve
+ggplot(richness_long, aes(x = TimeBin, y = MeanRichness, group = factor(point_id), color = factor(point_id))) +
+  geom_line(alpha = 0.3) +
+  geom_line(data = richness_overall, aes(x = TimeBin, y = MeanRichness, group = 1), color = "black", size = 1.5) +
+  labs(
+    title = "",
+    x = "Time Bin (min)",
+    y = "Mean Cumulative Species Richness"
+  ) +
+  scale_y_continuous(breaks = c(0:7),limits = c(0, 7), expand = c(0, 0))+
+  theme_bw() +
+  theme(legend.position = "none")
+```
+
+Looks like modest accumulation with no sharp increase and plateau seen across plots with some variation between plots. The variation between plots could be random noise. 
 
 # Point count schedule by month
 
