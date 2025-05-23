@@ -30,8 +30,12 @@ funk <- function(x){length(unique(x))}
 #####    load data    #####
 #
 # load each raw data file
-s.dat <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\form-1__snag-locs.csv")
 
+#snag data
+s.dat <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\form-1__snag-locs.csv")
+#meta-data for tls scans. good to see how many have been done thus far.
+tls_meta_data <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\form-1__tsl.csv")
+#TLS habitat structure data
 
 
 ```

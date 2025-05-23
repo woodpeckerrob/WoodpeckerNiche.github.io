@@ -57,7 +57,7 @@ df <- merge(x=parent_form,y=child_form,by.x="ec5_uuid",by.y="ec5_parent_uuid")
 # remove any observation that is not a foraging observation
 
 df <- df|>
-  filter(X9_Foraging_type !="Other (includes not foraging)")
+  filter(X10_Foraging_type !="Other (includes not foraging)")
 df$X6_date <- as.Date(df$X6_date, format = "%m/%d/%Y")
 df$month <- as.numeric(format(df$X6_date, "%m"))
 df$X3_Plot_number <- as.numeric(df$X3_Plot_number)
@@ -109,7 +109,7 @@ colnames(pivoted_data) <- c("month","Species",1:32)
 # Step 1: Combine across months
 tab_combined <- pivoted_data %>%
   group_by(Species) %>%
-  summarise(across(`1`:`32`, sum, na.rm = TRUE))
+  summarise(across(`1`:`32`, \(x) sum(x, na.rm = TRUE)))
 
 # Step 2: Reshape to long format
 tab_long <- tab_combined %>%
@@ -157,9 +157,12 @@ sp_comp_plot <- ggplot(tab_pct, aes(x = Plot, y = Percent, fill = Species)) +
 #| echo: false
 #| message: false
 #| warning: false
-
+#| label: Figure 1
+#| fig-cap: "Observations by species. numbers above the bar indicates the number of observations for each species."
+#| fig-alt: "Species composition plot figure"
 sp_comp_plot
 ```
+
 
 # March Observations
 
@@ -248,10 +251,10 @@ print(kable(tab, caption = paste("April observations by species and plot")))
 #| include: false
 
 data_encoded <- cbind(
-  df[, c("X15_time_spent_sec")],  # Keep the continuous columns
-  model.matrix(~ X9_Foraging_type - 1, df), # One-hot encoding for 'species'
-  model.matrix(~ X10_Substrate - 1, df), # One-hot encoding for 'condition'
-  model.matrix(~ X11_where - 1, df) # One-hot encoding for 'condition'
+  df[, c("X16_time_spent_sec")],  # Keep the continuous columns
+  model.matrix(~ X10_Foraging_type - 1, df), # One-hot encoding for 'species'
+  model.matrix(~ X11_Substrate - 1, df), # One-hot encoding for 'condition'
+  model.matrix(~ X12_where - 1, df) # One-hot encoding for 'condition'
 
 )
 

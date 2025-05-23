@@ -23,7 +23,7 @@ Avian communities are often sampled with point count surveys, and for good reaso
   library(purrr)
   library(lubridate)
   library(ggplot2)
-  library(unmarked)
+  #library(unmarked)
   library(lubridate)
 
 }

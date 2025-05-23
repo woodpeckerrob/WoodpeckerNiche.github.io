@@ -60,7 +60,7 @@
     "href": "woodpecker_obs.html",
     "title": "Woodpecker Observations",
     "section": "",
-    "text": "Woodpecker observation data collected thus far. Data is arranged by plot, species, and month."
+    "text": "Woodpecker observation data collected thus far. Data is arranged by plot, species, and month.\nObservations by species. numbers above the bar indicates the number of observations for each species."
   },
   {
     "objectID": "woodpecker_obs.html#observations-by-plot-species-and-month",
@@ -103,5 +103,12 @@
     "title": "Point Counts",
     "section": "",
     "text": "The plot (above) shows total cavity nesting bird abundances at each site."
+  },
+  {
+    "objectID": "veg_data.html",
+    "href": "veg_data.html",
+    "title": "Habitat Assessment",
+    "section": "",
+    "text": "Habitat variables were obtained to explain the patterns in foraging behavior of each species as an alternative hypothesis. Habitat metrics also provide context for the study and makes it more translatable to other systems.\nWe collected information on dead trees (snags), burn history, and habitat structure.\n\nSnag data\nThere’s a lot of life after death when thinking about dead trees. In the early stages of death, dead trees may become hot-spots of food for woodpeckers as beetle larvae eat at the more susceptible wood. But after a few months, this resource decreases as beetles mature and consume most of the nutritious parts of the tree. Then, over many years the tree decomposes and become a nesting resource for cavity-nesting birds and other taxons.\nHere, we describe the quality and quantity of these snag resources. There are many ways to quantify a dead tree including decay class, diameter at breast height (DBH), amount of dead wood, amount of bark, and species. This diversity of snag characteristics within a plot my lead to more diversity within the plot. Thus, I will reduce this dimensionality in the data using multivariate statistics. This will result in a one or two metrics that can be used for further analysis."
   }
 ]
