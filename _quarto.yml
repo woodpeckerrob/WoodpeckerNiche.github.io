@@ -10,6 +10,7 @@ website:
         text: Home
       - point_counts.qmd
       - woodpecker_obs.qmd
+      - veg_data.qmd
 
 format:
   html:

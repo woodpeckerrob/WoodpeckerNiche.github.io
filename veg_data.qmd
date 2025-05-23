@@ -1,0 +1,38 @@
+---
+title: "Habitat Assessment"
+---
+
+Habitat variables were obtained to explain the patterns in foraging behavior of each species as an alternative hypothesis. Habitat metrics also provide context for the study and makes it more translatable to other systems. 
+
+We collected information on dead trees (snags), burn history, and habitat structure. 
+
+
+# Snag data
+
+There's a lot of life after death when thinking about dead trees. In the early stages of death, dead trees may become hot-spots of food for woodpeckers as beetle larvae eat at the more susceptible wood. But after a few months, this resource decreases as beetles mature and consume most of the nutritious parts of the tree. Then, over many years the tree decomposes and become a nesting resource for cavity-nesting birds and other taxons. 
+
+Here, we describe the quality and quantity of these snag resources. There are many ways to quantify a dead tree including decay class, diameter at breast height (DBH), amount of dead wood, amount of bark, and species. This diversity of snag characteristics within a plot my lead to more diversity within the plot. Thus, I will reduce this dimensionality in the data using multivariate statistics. This will result in a one or two metrics that can be used for further analysis.
+
+```{r}
+#| echo: false
+#| include: false
+#| message: false
+
+#####    load packages and functions    #####
+{
+  library(dplyr)
+  library(ggplot2)
+  
+}
+
+funk <- function(x){length(unique(x))}
+
+#####    load data    #####
+#
+# load each raw data file
+s.dat <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\form-1__snag-locs.csv")
+
+
+
+```
+
