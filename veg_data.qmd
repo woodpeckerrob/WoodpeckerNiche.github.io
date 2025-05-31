@@ -2,16 +2,12 @@
 title: "Habitat Assessment"
 ---
 
+Test
+
 Habitat variables were obtained to explain the patterns in foraging behavior of each species as an alternative hypothesis. Habitat metrics also provide context for the study and makes it more translatable to other systems. 
 
 We collected information on dead trees (snags), burn history, and habitat structure. 
 
-
-# Snag data
-
-There's a lot of life after death when thinking about dead trees. In the early stages of death, dead trees may become hot-spots of food for woodpeckers as beetle larvae eat at the more susceptible wood. But after a few months, this resource decreases as beetles mature and consume most of the nutritious parts of the tree. Then, over many years the tree decomposes and become a nesting resource for cavity-nesting birds and other taxons. 
-
-Here, we describe the quality and quantity of these snag resources. There are many ways to quantify a dead tree including decay class, diameter at breast height (DBH), amount of dead wood, amount of bark, and species. This diversity of snag characteristics within a plot my lead to more diversity within the plot. Thus, I will reduce this dimensionality in the data using multivariate statistics. This will result in a one or two metrics that can be used for further analysis.
 
 ```{r}
 #| echo: false
@@ -22,21 +18,233 @@ Here, we describe the quality and quantity of these snag resources. There are ma
 {
   library(dplyr)
   library(ggplot2)
-  
+  library(geosphere)
+  library(lubridate)
+  library(stars)
+  library(sf)
+  library(cowplot)
+  #library(lidR)
+  library(rgl)
 }
 
+###### load functions  #####
 funk <- function(x){length(unique(x))}
+
+# Plot function
+plot_one <- function(plot_id) {
+  ggplot() +
+    geom_sf(data = plots %>% filter(Plot_ID == plot_id), fill = "grey90", color = "black") +
+    geom_sf(data = tls_subset %>% filter(Plot_ID == plot_id), aes(color = percent_vertical_cover), size = 3) +
+    geom_sf(data = snag_sf %>% filter(st_within(geometry, plots %>% filter(Plot_ID == plot_id), sparse = FALSE)),
+            aes(fill = decay), size = 2, color = "black", shape=24) +
+    scale_color_viridis_c() +
+    theme_bw() +
+    theme(
+      axis.title = element_blank(),  # removes x and y axis titles
+      axis.text = element_blank(),   # removes x and y axis text
+      legend.position = "none"  # Hide legends from individual plots
+    ) +    
+    ggtitle(paste("Plot", plot_id))
+}
+
 
 #####    load data    #####
 #
+
+#plots shapefile
+plots <- st_read("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\shapefiles\\Ch2_all_study_plots.shp")
+
 # load each raw data file
 
 #snag data
 s.dat <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\form-1__snag-locs.csv")
-#meta-data for tls scans. good to see how many have been done thus far.
-tls_meta_data <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\form-1__tsl.csv")
-#TLS habitat structure data
 
+# example tls scan
+
+#las <- readLAS("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\tls_scan_data\\example_4_30_25_HtN_Setup39.las")
+
+#meta-data for tls scans. good to see how many have been done thus far.
+tls_meta_data <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\tls_scan_data\\form-1__tsl.csv")
+tls_meta_data$date <- ymd(substr(tls_meta_data$created_at,0,10))
+tls_meta_data <- subset(tls_meta_data,tls_meta_data$X8_check_if_we_need_t=="") #remove any where we redid the scan
+tls_meta_data$time <- hms(tls_meta_data$X1_time_during_scan)
+tls_meta_data <- tls_meta_data[with(tls_meta_data, order(date, time)), ]
+
+#TLS habitat structure data
+tls_hab_data <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\tls_scan_data\\tls_habitat_metrics.csv")
+tls_hab_data$date <- mdy(tls_hab_data$folder_name)
+tls_hab_data$order <- as.numeric(substr(tls_hab_data$Scan_ID,17,19)) #correct the order in which the scans occurred
+tls_hab_data <- tls_hab_data[-64,] #5-3-25 had an extra hab data that doesn't match meta. removing this one
+tls_hab_data <- tls_hab_data[with(tls_hab_data, order(date, order)), ]
+
+# subset the ones in meta-data by those in tls_hab_data
+
+tls_meta_data <- tls_meta_data[tls_meta_data$date %in% tls_hab_data$date, ]
+
+
+## matching tls meta data to hab data
+udays <- unique(tls_hab_data$date)
+tls_data <- data.frame()
+for(i in 1:length(udays)){
+  temp_hab <- subset(tls_hab_data,tls_hab_data$date==udays[i])
+  temp_meta <- subset(tls_meta_data,tls_meta_data$date==udays[i])
+  if(nrow(temp_hab)==nrow(temp_meta)){
+    temp_combo <- cbind(temp_hab,temp_meta)
+  }else{
+    # rows don't math, must be some issue
+    print("issue with day ",i)
+  }
+  tls_data <- rbind(tls_data,temp_combo)
+
+}
+
+#remove rows with no spatial data
+tls_data <- tls_data[!is.na(tls_data$UTM_Northing_7_scan_loc),]
+
+#turn tls_data into a spatial object
+tls_data_sf <- tls_data %>%
+  st_as_sf(coords = c("long_7_scan_loc", "lat_7_scan_loc"), crs = 4326)
+
+# Transform to match CRS of the plots shapefile
+tls_data_sf <- st_transform(tls_data_sf, crs = st_crs(plots))
+
+# merge with plots data
+tls_with_plots <- st_join(tls_data_sf, plots)
+
+# subset for plotting
+tls_subset <- tls_with_plots %>%
+  filter(Plot_ID %in% c(6, 14, 22, 32))
+
+
+
+
+
+## snags
+
+#plot based on decay class as a numeric value
+s.dat$decay <- as.numeric(substr(s.dat$X3_decay_class,0,1))
+
+#need to correct for bearing and distance of each
+
+# Create matrix of observer coordinates (lon, lat)
+observer_coords <- s.dat %>%
+  select(long_7_location, lat_7_location) %>%
+  as.matrix()
+
+# Calculate new coords based on bearing and distance
+snag_coords <- geosphere::destPoint(
+  p = observer_coords,
+  b = as.numeric(s.dat$X5_bearing),     # bearing in degrees
+  d = as.numeric(s.dat$X6_distance_m)   # distance in meters
+)
+
+# Add calculated lat/lon to original data
+s.dat$snag_lon <- snag_coords[, 1]
+s.dat$snag_lat <- snag_coords[, 2]
+
+snag_sf <- st_as_sf(s.dat, coords = c("snag_lon", "snag_lat"), crs = 4326)
+
+snag_sf <- st_transform(snag_sf, crs = st_crs(plots))
+
+
+
+## plot
+
+#make legend separate
+legend_data <- data.frame(
+  x = 1:7,
+  y = 1:7,
+  percent_vertical_cover = seq(0, 1, length.out = 7),
+  decay = factor(2:8)  # Match your actual decay values
+)
+
+# Dummy plot to extract both legends
+legend_plot <- ggplot(legend_data, aes(x = x, y = y)) +
+  geom_point(aes(color = percent_vertical_cover), size = 4, shape = 16) +
+  geom_point(aes(fill = decay), size = 4, shape = 24, color = "black") +
+  scale_color_viridis_c(name = "Percent\nCanopy cover", limits = c(0, 1)) +
+  scale_fill_viridis_d(name = "Decay class") +
+  theme_minimal()
+
+shared_legend <- cowplot::get_legend(legend_plot)
+
+p1 <- plot_one(6)
+p2 <- plot_one(14)
+p3 <- plot_one(22)
+p4 <- plot_one(32)
+
+# Combine with cowplot
+tls_plots <- cowplot::plot_grid(p1, p2, p3, p4, ncol = 2)
+
+final_plot <- cowplot::plot_grid(
+  tls_plots,
+  shared_legend,
+  ncol = 2,
+  rel_widths = c(0.85, 0.15)  # Adjust spacing if needed
+)
+```
+
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: Figure 2
+#| fig-cap: "Four example plots, one from each study site, displaying stratified points of canopy cover (circles) and snag locations (triangles). Snags are colored by decay class where increasing number represents more decayed trees."
+#| fig-alt: "Example habitat plots"
+final_plot
 
 ```
 
+# Terrestrial laser scanning
+
+Terrestrial laser scanning (similar to LiDAR) is capable of deriving 200+ metrics from the environment in under two minutes by shooting lasers out in many directions and retrieving the resulting distance to conceptualize the structure of the environment. 
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| include: false
+
+# Open a 3D device (in-memory for web widget)
+
+#cyl1 <- clip_circle(las, x = 0, y = 0, radius = 12)			# Make circle larger than you want it
+  
+  
+#cyl2 <- filter_poi(cyl1, Z > -1.8)
+#open3d()
+
+# Plot the point cloud (can also use intensity or classification as color)
+# Use plot3d from rgl, not base plot
+#plot3d(
+#  cyl2@data$X, cyl2@data$Y, cyl2@data$Z,
+#  col = rainbow(100)[as.numeric(cut(cyl2@data$Z, 100))],
+#  size = 1,
+#  type = "p",      # type "p" for points
+#  xlab = "X", ylab = "Y", zlab = "Z"
+#)
+
+# Output as HTML widget
+#rglwidget()
+
+
+#df <- cyl2@data
+#df2 <- df[,1:3]
+#colnames(df2) <- c("x","y","Height")
+# 2D top-down view (X vs Y), colored by Z
+#example <- ggplot(df2, aes(x = x, y = y, color = Height)) +
+#  geom_point(size = 0.5) +
+#  scale_color_viridis_c(limits=c(0,30)) +  # continuous viridis scale
+#  coord_fixed() +
+#  theme_bw()
+
+# stopping this image in casethis is why file sze limit is too big
+#![Top-down view of a terrestrial laser scan of a plot (clipped to 12m from scan center).](docs\\data\\raw\\tls_scan_dataexample_plot.png)
+```
+
+
+# Snag data
+
+There's a lot of life after death when thinking about dead trees. In the early stages of death, dead trees may become hot-spots of food for woodpeckers as beetle larvae eat at the more susceptible wood. But after a few months, this resource decreases as beetles mature and consume most of the nutritious parts of the tree. Then, over many years the tree decomposes and become a nesting resource for cavity-nesting birds and other taxons. 
+
+Here, we describe the quality and quantity of these snag resources. There are many ways to quantify a dead tree including decay class, diameter at breast height (DBH), amount of dead wood, amount of bark, and species. This diversity of snag characteristics within a plot my lead to more diversity within the plot. Thus, I will reduce this dimensionality in the data using multivariate statistics. This will result in a one or two metrics that can be used for further analysis.

@@ -2,6 +2,7 @@
 title: "Point Counts"
 editor: visual
 ---
+
 # Point count results
 
 Avian communities are often sampled with point count surveys, and for good reason. Point counts in this study will provide information on the grater cavity-nesting bird community which is important for understanding competition and community assemblages as they relate to environmental variables. Below are some preliminary results on each of the four sites with simple models using the Distance package in R. These models vary detection probability by species only and provide estimates on species abundance with associated confidence intervals.
@@ -308,6 +309,7 @@ total_plot <- ggplot(temp, aes(x = site, y = est)) +
 
 
 ```
+
 ## Summary plots for results thus far...
 
 ```{r}
@@ -443,7 +445,6 @@ richness_overall <- richness_long %>%
 
 ```
 
-
 ```{r}
 #| echo: false
 #| message: false
@@ -462,15 +463,16 @@ ggplot(richness_long, aes(x = TimeBin, y = MeanRichness, group = factor(point_id
   theme(legend.position = "none")
 ```
 
-Looks like modest accumulation with no sharp increase and plateau seen across plots with some variation between plots. The variation between plots could be random noise. 
+Looks like modest accumulation with no sharp increase and plateau seen across plots with some variation between plots. The variation between plots could be random noise.
 
 # Point count schedule by month
 
-The following are the scheduled order of point counts to conduct per visit to the site. This ensures that community data obtained isn't biased by lower or higher detections thoughout the day. 
-
+The following are the scheduled order of point counts to conduct per visit to the site. This ensures that community data obtained isn't biased by lower or higher detections thoughout the day.
 
 ## April
+
 ### Arcadia
+
 ```{r}
 #| echo: false
 #| message: false
@@ -483,6 +485,7 @@ print(kable(month_data, caption = paste("Order for Arcadia", "in", mon)))
 ```
 
 ### Greenwood
+
 ```{r}
 #| echo: false
 #| message: false
@@ -495,6 +498,7 @@ print(kable(month_data, caption = paste("Order for Greenwood", "in", mon)))
 ```
 
 ### Livingston
+
 ```{r}
 #| echo: false
 #| message: false
@@ -507,6 +511,7 @@ print(kable(month_data, caption = paste("Order for Livingston Place", "in", mon)
 ```
 
 ### Tall Timbers
+
 ```{r}
 #| echo: false
 #| message: false
@@ -521,6 +526,7 @@ print(kable(month_data, caption = paste("Order for Tall Timbers", "in", mon)))
 ## May
 
 ### Arcadia
+
 ```{r}
 #| echo: false
 #| message: false
@@ -533,6 +539,7 @@ print(kable(month_data, caption = paste("Order for Arcadia", "in", mon)))
 ```
 
 ### Greenwood
+
 ```{r}
 #| echo: false
 #| message: false
@@ -545,6 +552,7 @@ print(kable(month_data, caption = paste("Order for Greenwood", "in", mon)))
 ```
 
 ### Livingston
+
 ```{r}
 #| echo: false
 #| message: false
@@ -557,6 +565,7 @@ print(kable(month_data, caption = paste("Order for Livingston Place", "in", mon)
 ```
 
 ### Tall Timbers
+
 ```{r}
 #| echo: false
 #| message: false
@@ -571,6 +580,7 @@ print(kable(month_data, caption = paste("Order for Tall Timbers", "in", mon)))
 ## June
 
 ### Arcadia
+
 ```{r}
 #| echo: false
 #| message: false
@@ -583,6 +593,7 @@ print(kable(month_data, caption = paste("Order for Arcadia", "in", mon)))
 ```
 
 ### Greenwood
+
 ```{r}
 #| echo: false
 #| message: false
@@ -595,6 +606,7 @@ print(kable(month_data, caption = paste("Order for Greenwood", "in", mon)))
 ```
 
 ### Livingston
+
 ```{r}
 #| echo: false
 #| message: false
@@ -607,6 +619,7 @@ print(kable(month_data, caption = paste("Order for Livingston Place", "in", mon)
 ```
 
 ### Tall Timbers
+
 ```{r}
 #| echo: false
 #| message: false
@@ -621,6 +634,7 @@ print(kable(month_data, caption = paste("Order for Tall Timbers", "in", mon)))
 ## July
 
 ### Arcadia
+
 ```{r}
 #| echo: false
 #| message: false
@@ -633,6 +647,7 @@ print(kable(month_data, caption = paste("Order for Arcadia", "in", mon)))
 ```
 
 ### Greenwood
+
 ```{r}
 #| echo: false
 #| message: false
@@ -645,6 +660,7 @@ print(kable(month_data, caption = paste("Order for Greenwood", "in", mon)))
 ```
 
 ### Livingston
+
 ```{r}
 #| echo: false
 #| message: false
@@ -657,6 +673,7 @@ print(kable(month_data, caption = paste("Order for Livingston Place", "in", mon)
 ```
 
 ### Tall Timbers
+
 ```{r}
 #| echo: false
 #| message: false
@@ -671,6 +688,7 @@ print(kable(month_data, caption = paste("Order for Tall Timbers", "in", mon)))
 ## August
 
 ### Arcadia
+
 ```{r}
 #| echo: false
 #| message: false
@@ -683,6 +701,7 @@ print(kable(month_data, caption = paste("Order for Arcadia", "in", mon)))
 ```
 
 ### Greenwood
+
 ```{r}
 #| echo: false
 #| message: false
@@ -695,6 +714,7 @@ print(kable(month_data, caption = paste("Order for Greenwood", "in", mon)))
 ```
 
 ### Livingston
+
 ```{r}
 #| echo: false
 #| message: false
@@ -707,6 +727,7 @@ print(kable(month_data, caption = paste("Order for Livingston Place", "in", mon)
 ```
 
 ### Tall Timbers
+
 ```{r}
 #| echo: false
 #| message: false
