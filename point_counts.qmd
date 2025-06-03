@@ -55,7 +55,23 @@ pc <- pc %>%
   filter(!is.na(real_distance_m), real_distance_m <= truncation_dist) %>%
   filter(!species %in% c("YBSA", "WODU")) %>%
   left_join(.,sites,by="point_id")
+pc <- pc %>%
+  # Convert date to Date format
+  mutate(date = mdy(date)) %>%
+  
+  # Create visit number per point_id based on date order
+  group_by(point_id, date) %>%
+  mutate(visit_date = first(date)) %>%   # Ensures a single date per group
+  ungroup() %>%
+  arrange(point_id, visit_date) %>%
+  group_by(point_id) %>%
+  mutate(visit = dense_rank(visit_date)) %>%
+  
+  # Calculate max number of visits per point_id
+  mutate(repeats = (n_distinct(visit_date))) %>% #effort in hours
 
+  mutate(Effort = ((n_distinct(visit_date))*10)/60) %>% #effort in hours
+  ungroup()
 pc$point_id <- as.numeric(as.factor(pc$point_id))  #had error running model, needed random effects to be numeric, not even factors...
 pc$site_name <- as.numeric(as.factor(pc$site_name))
 #############################
@@ -175,30 +191,38 @@ out <- lfMsDS(
 # Extract the summary output
 
 # Rearrange dimensions to [site, species, sample]
-N_array <- aperm(out$N.samples, c(3, 2, 1))  # Now: [32, 13, 11250]
+N_array <- aperm(out$N.samples, c(3, 2, 1))  # [32, 13, 11250]
 
-# Now compute posterior means: mean over the 3rd dimension (samples)
-N_means <- apply(N_array, c(1, 2), mean)  # [32 sites x 13 species]
-# 2. Create data frame
-abund_df <- as.data.frame(N_means)
-colnames(abund_df) <- out$sp.names
+# Step 2: Summarize posterior for each site × species
+summary_list <- apply(N_array, c(1, 2), function(x) {
+  c(mean = mean(x),
+    lower = quantile(x, 0.025),
+    upper = quantile(x, 0.975))
+})
+# Step 3: Reshape the summary into long format
+# summary_list is now 3 x 32 x 13 → transpose appropriately
+summary_df <- as.data.frame.table(summary_list)
+colnames(summary_df) <- c("stat", "site_index", "species", "value")
 
-# Convert to long format
-N_means_long <- as.data.frame(abund_df) %>%
-  mutate(site_index = 1:nrow(.)) %>%
-  pivot_longer(cols = -site_index,
-               names_to = "species",
-               values_to = "abundance")
+# Replace species labels with actual species names
+summary_df$species <- factor(summary_df$species, 
+                             levels = LETTERS[1:length(out$sp.names)],
+                             labels = out$sp.names)
 
-# Add site info (ensure matching order)
+
+# Pivot wider: one row per site × species with mean, lower, upper
+summary_wide <- summary_df %>%
+  pivot_wider(names_from = stat, values_from = value) %>%
+  mutate(site_index = as.integer(site_index))
+
+# Step 4: Add site info (ensure order matches input)
 site_info <- pc %>%
   select(point_id, site_abb, site_name) %>%
   distinct() %>%
   mutate(site_index = row_number())
 
-# Join
-plot_df <- left_join(N_means_long, site_info, by = "site_index")
-
+plot_df <- left_join(summary_wide, site_info, by = "site_index")
+colnames(plot_df) <- c("site_index","species","mean","lower","upper","point_id","site_abb","site_name")
 # Plot
 
 
@@ -217,34 +241,32 @@ plot_df <- left_join(N_means_long, site_info, by = "site_index")
 #plotting
 
 
-ggplot(plot_df, aes(x = factor(point_id), y = abundance, fill = species)) +
+ggplot(plot_df, aes(x = factor(point_id), y = mean, fill = species)) +
   geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = lower, ymax = upper),
+                position = position_dodge(width = 0.9),
+                width = 0.3) +
   facet_wrap(~ species, scales = "free_y") +
   theme_bw() +
       theme(
       axis.title = element_blank(),  # removes x and y axis titles
       legend.position = "none"  # Hide legends from individual plots
     ) +    
+  geom_vline(xintercept = 7.5, linetype="dotted", 
+                color = "black", linewidth=1.5)+
+  geom_vline(xintercept = 14.5, linetype="dotted", 
+                color = "black", linewidth=1.5)+
+  geom_vline(xintercept = 23.5, linetype="dotted", 
+                color = "black", linewidth=1.5)+
+  scale_y_continuous(expand=c(0, 0))+ 
   labs(x = "Point ID", y = "Estimated Abundance", fill = "Species") +
   theme(axis.text.x = element_text(angle = 90))
 
 ```
 
-This plot (above) shows the abundance estimates for cavity nesting species at each study site individually. This data represents only March and April 2025.
-
-## Totals across sites
-
-```{r}
-#| echo: false
-#| message: false
-
-#plotting
-total_plot
+This plot (above) shows the abundance estimates for cavity nesting species at each study site (separated by vertical dashed lines). This data represents only March and April 2025 since that's what we have entered into excel thus far. Species estimates are shown with their corresponding 95% credible intervals.
 
 
-```
-
-The plot (above) shows total cavity nesting bird abundances at each site.
 
 # How long should a point count be?
 

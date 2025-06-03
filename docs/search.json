@@ -18,7 +18,7 @@
     "href": "point_counts.html",
     "title": "Point Counts",
     "section": "",
-    "text": "Avian communities are often sampled with point count surveys, and for good reason. Point counts in this study will provide information on the grater cavity-nesting bird community which is important for understanding competition and community assemblages as they relate to environmental variables. Below are some preliminary results on each of the four sites with simple models using the Distance package in R. These models vary detection probability by species only and provide estimates on species abundance with associated confidence intervals.\n\n\n\n\n\n\n\n\n\n\n\nThis plot (above) shows the abundance estimates for cavity nesting species at each study site individually. This data represents only March and April 2025.\n\n\n\n\n\n\n\n\n\n\n\n\nThe plot (above) shows total cavity nesting bird abundances at each site."
+    "text": "Avian communities are often sampled with point count surveys, and for good reason. Point counts in this study will provide information on the grater cavity-nesting bird community which is important for understanding competition and community assemblages as they relate to environmental variables. Below are some preliminary results on each of the four sites with simple models using the spAbundance package in R. These models vary detection probability by species only and provide estimates on species abundance with associated confidence intervals.\n\n\n\n\n\n\n\n\n\n\n\nThis plot (above) shows the abundance estimates for cavity nesting species at each study site (separated by vertical dashed lines). This data represents only March and April 2025 since that’s what we have entered into excel thus far. Species estimates are shown with their corresponding 95% credible intervals."
   },
   {
     "objectID": "index.html#website-description",
@@ -95,7 +95,7 @@
     "href": "point_counts.html#summary-plots-for-results-thus-far",
     "title": "Point Counts",
     "section": "",
-    "text": "This plot (above) shows the abundance estimates for cavity nesting species at each study site individually. This data represents only March and April 2025."
+    "text": "This plot (above) shows the abundance estimates for cavity nesting species at each study site (separated by vertical dashed lines). This data represents only March and April 2025 since that’s what we have entered into excel thus far. Species estimates are shown with their corresponding 95% credible intervals."
   },
   {
     "objectID": "point_counts.html#totals-across-sites",

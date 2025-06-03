@@ -123,7 +123,6 @@ ul.task-list li input[type="checkbox"] {
   <li><a href="#point-count-results" id="toc-point-count-results" class="nav-link active" data-scroll-target="#point-count-results">Point count results</a>
   <ul class="collapse">
   <li><a href="#summary-plots-for-results-thus-far" id="toc-summary-plots-for-results-thus-far" class="nav-link" data-scroll-target="#summary-plots-for-results-thus-far">Summary plots for results thus far…</a></li>
-  <li><a href="#totals-across-sites" id="toc-totals-across-sites" class="nav-link" data-scroll-target="#totals-across-sites">Totals across sites</a></li>
   </ul></li>
   <li><a href="#how-long-should-a-point-count-be" id="toc-how-long-should-a-point-count-be" class="nav-link" data-scroll-target="#how-long-should-a-point-count-be">How long should a point count be?</a></li>
   <li><a href="#point-count-schedule-by-month" id="toc-point-count-schedule-by-month" class="nav-link" data-scroll-target="#point-count-schedule-by-month">Point count schedule by month</a>
@@ -191,32 +190,19 @@ ul.task-list li input[type="checkbox"] {
 
 <section id="point-count-results" class="level1">
 <h1>Point count results</h1>
-<p>Avian communities are often sampled with point count surveys, and for good reason. Point counts in this study will provide information on the grater cavity-nesting bird community which is important for understanding competition and community assemblages as they relate to environmental variables. Below are some preliminary results on each of the four sites with simple models using the Distance package in R. These models vary detection probability by species only and provide estimates on species abundance with associated confidence intervals.</p>
+<p>Avian communities are often sampled with point count surveys, and for good reason. Point counts in this study will provide information on the grater cavity-nesting bird community which is important for understanding competition and community assemblages as they relate to environmental variables. Below are some preliminary results on each of the four sites with simple models using the spAbundance package in R. These models vary detection probability by species only and provide estimates on species abundance with associated confidence intervals.</p>
 <section id="summary-plots-for-results-thus-far" class="level2">
 <h2 class="anchored" data-anchor-id="summary-plots-for-results-thus-far">Summary plots for results thus far…</h2>
 <div class="cell">
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="point_counts_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="point_counts_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
-<p>This plot (above) shows the abundance estimates for cavity nesting species at each study site individually. This data represents only March and April 2025.</p>
-</section>
-<section id="totals-across-sites" class="level2">
-<h2 class="anchored" data-anchor-id="totals-across-sites">Totals across sites</h2>
-<div class="cell">
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="point_counts_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-</div>
-<p>The plot (above) shows total cavity nesting bird abundances at each site.</p>
+<p>This plot (above) shows the abundance estimates for cavity nesting species at each study site (separated by vertical dashed lines). This data represents only March and April 2025 since that’s what we have entered into excel thus far. Species estimates are shown with their corresponding 95% credible intervals.</p>
 </section>
 </section>
 <section id="how-long-should-a-point-count-be" class="level1">
@@ -230,7 +216,7 @@ ul.task-list li input[type="checkbox"] {
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="point_counts_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="point_counts_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
