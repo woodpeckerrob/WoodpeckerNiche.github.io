@@ -1,33 +1,33 @@
-point_id,site_abb,site_name
-1,ARCA,Arcadia
-2,ARCA,Arcadia
-3,ARCA,Arcadia
-4,ARCA,Arcadia
-5,ARCA,Arcadia
-6,ARCA,Arcadia
-7,ARCA,Arcadia
-8,GREN,Greenwood
-9,GREN,Greenwood
-10,GREN,Greenwood
-11,GREN,Greenwood
-12,GREN,Greenwood
-13,GREN,Greenwood
-14,GREN,Greenwood
-15,LIVI,Livingston Place
-16,LIVI,Livingston Place
-17,LIVI,Livingston Place
-18,LIVI,Livingston Place
-19,LIVI,Livingston Place
-20,LIVI,Livingston Place
-21,LIVI,Livingston Place
-22,LIVI,Livingston Place
-23,LIVI,Livingston Place
-24,TTRS,Tall Timbers
-25,TTRS,Tall Timbers
-26,TTRS,Tall Timbers
-27,TTRS,Tall Timbers
-28,TTRS,Tall Timbers
-29,TTRS,Tall Timbers
-30,TTRS,Tall Timbers
-31,TTRS,Tall Timbers
-32,TTRS,Tall Timbers
+point_id,site_abb,site_name,x,y
+1,ARCA,Arcadia,-83.99777455,30.78227538
+2,ARCA,Arcadia,-84.00622709,30.77634551
+3,ARCA,Arcadia,-84.01703221,30.76985152
+4,ARCA,Arcadia,-84.00121251,30.76710809
+5,ARCA,Arcadia,-84.01391209,30.75895422
+6,ARCA,Arcadia,-83.99893264,30.75803367
+7,ARCA,Arcadia,-84.00204677,30.74901374
+8,GREN,Greenwood,-84.04464278,30.86590432
+9,GREN,Greenwood,-84.02402122,30.86624768
+10,GREN,Greenwood,-84.00870178,30.86823477
+11,GREN,Greenwood,-84.01510113,30.86107655
+12,GREN,Greenwood,-84.01073306,30.85002838
+13,GREN,Greenwood,-84.02032485,30.84526177
+14,GREN,Greenwood,-84.01688584,30.83659943
+15,LIVI,Livingston Place,-83.68645293,30.64633207
+16,LIVI,Livingston Place,-83.67487963,30.64321274
+17,LIVI,Livingston Place,-83.69007636,30.63803041
+18,LIVI,Livingston Place,-83.65449283,30.63547585
+19,LIVI,Livingston Place,-83.70068584,30.63304531
+20,LIVI,Livingston Place,-83.67602802,30.63175713
+21,LIVI,Livingston Place,-83.68610699,30.62689468
+22,LIVI,Livingston Place,-83.6676521,30.62549372
+23,LIVI,Livingston Place,-83.67680491,30.62161196
+24,TTRS,Tall Timbers,-84.23484824,30.6735152
+25,TTRS,Tall Timbers,-84.21833108,30.67273662
+26,TTRS,Tall Timbers,-84.21820239,30.66239205
+27,TTRS,Tall Timbers,-84.24793207,30.66273284
+28,TTRS,Tall Timbers,-84.23788971,30.66129773
+29,TTRS,Tall Timbers,-84.20528064,30.65819767
+30,TTRS,Tall Timbers,-84.23650011,30.65262522
+31,TTRS,Tall Timbers,-84.226126,30.65009658
+32,TTRS,Tall Timbers,-84.21619661,30.65017608

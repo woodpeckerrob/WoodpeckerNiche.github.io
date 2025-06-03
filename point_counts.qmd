@@ -5,7 +5,7 @@ editor: visual
 
 # Point count results
 
-Avian communities are often sampled with point count surveys, and for good reason. Point counts in this study will provide information on the grater cavity-nesting bird community which is important for understanding competition and community assemblages as they relate to environmental variables. Below are some preliminary results on each of the four sites with simple models using the Distance package in R. These models vary detection probability by species only and provide estimates on species abundance with associated confidence intervals.
+Avian communities are often sampled with point count surveys, and for good reason. Point counts in this study will provide information on the grater cavity-nesting bird community which is important for understanding competition and community assemblages as they relate to environmental variables. Below are some preliminary results on each of the four sites with simple models using the spAbundance package in R. These models vary detection probability by species only and provide estimates on species abundance with associated confidence intervals.
 
 ```{r}
 #| echo: false
@@ -20,12 +20,14 @@ Avian communities are often sampled with point count surveys, and for good reaso
   library(cowplot)
   library(knitr)
   library(tidyr)
-  library(Distance)
+  #library(Distance)
+  library(spAbundance)
   library(purrr)
   library(lubridate)
   library(ggplot2)
   #library(unmarked)
   library(lubridate)
+  library(abind)
 
 }
 
@@ -43,272 +45,168 @@ funk <- function(x){length(unique(x))}
 #####    load data    #####
 #
 # load each raw data file
-survey <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\order_of_point_count_surveys.csv")
-pc <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\point_count_data.csv")
-sites <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\point_count_id_site_crosswalk.csv")
+survey <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\order_of_point_count_surveys.csv")
+pc <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\point_count_data.csv")
+sites <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\point_count_id_site_crosswalk.csv")
 truncation_dist <- 200
 #edit data to have desired columns
 pc <- pc[pc$real_distance_m <= truncation_dist, ]
 pc <- pc %>%
   filter(!is.na(real_distance_m), real_distance_m <= truncation_dist) %>%
-  filter(!species %in% c("YBSA", "WODU"))
+  filter(!species %in% c("YBSA", "WODU")) %>%
+  left_join(.,sites,by="point_id")
 
-# add new columns
-pc <- pc %>%
-  # Convert date to Date format
-  mutate(date = mdy(date)) %>%
-  
-  # Create visit number per point_id based on date order
+pc$point_id <- as.numeric(as.factor(pc$point_id))  #had error running model, needed random effects to be numeric, not even factors...
+pc$site_name <- as.numeric(as.factor(pc$site_name))
+#############################
+##### latent factor Distance sampling #####
+
+
+# needs number of bins to be 1 more than the number of replicates in third dimention of y
+n_replicates <- pc %>%
   group_by(point_id, date) %>%
-  mutate(visit_date = first(date)) %>%   # Ensures a single date per group
-  ungroup() %>%
-  arrange(point_id, visit_date) %>%
+  summarize(n = n(), .groups = "drop") %>%
   group_by(point_id) %>%
-  mutate(visit = dense_rank(visit_date)) %>%
-  
-  # Calculate max number of visits per point_id
-  mutate(repeats = (n_distinct(visit_date))) %>% #effort in hours
+  summarize(n_visits = n()) %>%
+  pull(n_visits) %>%
+  max()
 
-  mutate(Effort = ((n_distinct(visit_date))*10)/60) %>% #effort in hours
+dist.breaks <- seq(0, truncation_dist, length.out = n_replicates + 1)
+
+# Bin the distance data
+pc$dist_bin <- cut(pc$real_distance_m, breaks = dist.breaks, labels = FALSE, include.lowest = TRUE)
+
+#need coords for the model to run
+# Extract site coordinates
+coords_df <- pc %>%
+  group_by(point_id) %>%
+  summarize(x = first(x), y = first(y)) %>%
+  ungroup() %>%
+  arrange(point_id)
+
+coords_mat <- as.matrix(coords_df[, c("x", "y")])
+rownames(coords_mat) <- coords_df$point_id
+
+
+# Build the 3D y array
+site_list <- unique(pc$point_id)
+species_list <- unique(pc$species)
+
+# Initialize array: species x sites x bins
+y_array <- array(0, dim = c(length(species_list), length(site_list), n_replicates),
+                 dimnames = list(species = species_list, site = site_list, bin = 1:n_replicates))
+
+# Fill in counts
+for (s in species_list) {
+  for (p in site_list) {
+    for (b in 1:n_replicates) {
+      y_array[s, as.character(p), b] <- sum(pc$species == s & pc$point_id == p & pc$dist_bin == b)
+    }
+  }
+}
+
+# covs
+covs <- pc %>%
+  group_by(point_id, site_name) %>%
+  summarize(wind = mean(wind, na.rm = TRUE),
+            sky = mean(sky, na.rm = TRUE)) %>%
   ungroup()
-pc <- na.omit(pc)
-pc$sky <- as.factor(pc$sky)
-pc$wind <- as.factor(pc$wind)
-pc <- merge(x=pc,y=sites,by="point_id")
-```
 
-```{r}
-#| echo: false
-#| include: false
-#| message: false
+covs$site <- as.character(covs$point_id)
+rownames(covs) <- covs$site
 
-# calculate results from point counts
-pc_ds <- data.frame(
-  object = 1:nrow(pc),
-  Region.Label = as.factor(pc$site_name),
-  Sample.Label = as.factor(pc$point_id),
-  distance = pc$real_distance_m,
-  species = as.factor(pc$species),
-  sky = pc$sky,
-  wind = pc$wind,
-  temp=pc$temp,
-  Effort=pc$Effort,
-  visit=pc$visit,
-  repeats=pc$repeats
+# Abundance: differences between sites (random intercepts by site)
+abund_formula <- ~  site_name
+
+# Detection: wind and sky with random intercepts (or slopes) by site if needed
+det_formula <- ~ wind + sky + (1 | point_id)
+
+data_list <- list(
+  y = y_array,
+  covs = covs,
+  dist.breaks = dist.breaks,
+  offset = rep(pi * 200^2, length(site_list)),
+  coords = coords_mat
 )
-pc_ds$Area <- 12.57 #ha
-pc_ds$object <- seq(1,nrow(pc_ds),1)
-pc_ds <- na.omit(pc_ds)
-pc_ds$sky <- as.factor(pc_ds$sky)
-pc_ds$wind <- as.factor(pc_ds$wind)
-# Fit half-normal model with detection covariates
-truncation_dist <- 200  # Max detection distance in meters
-area_ha <- pi * (truncation_dist^2) / 10000  # Survey area in hectares
 
 
-#model to see what set of variables are best
-convunit <- convert_units("meter", NULL, "hectare") #NULL is for point counts
-#all.birds.swt <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
-#                formula=~species+sky+wind+temp, truncation = truncation_dist)
+priors <- list(
+  beta.comm.normal = list(0, 100),
+  alpha.comm.normal = list(0, 100),
+  tau.sq.beta.ig = list(0.1, 0.1),
+  tau.sq.alpha.ig = list(0.1, 0.1),
+  sigma.sq.mu.ig = list(0.1, 0.1),
+  sigma.sq.p.ig = list(0.1, 0.1)
+)
 
-#all.birds.sw  <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
-#                formula=~species+sky+wind, truncation = truncation_dist)
+inits <- list()
 
-#all.birds.st  <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
-#                formula=~species+sky+temp, truncation = truncation_dist)
+#pca of each globe plot (morph, function, phylo?) look into proportion transformation for pca
 
-#all.birds.tw  <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
-#                formula=~species+wind+temp, truncation = truncation_dist)
+out <- lfMsDS(
+  abund.formula = abund_formula,
+  det.formula = det_formula,
+  data = data_list,
+  inits = inits,
+  priors = priors,
+  tuning = list(
+    beta = 0.1,
+    alpha = 0.1,
+    #beta.star = 0.1,   #required because of random effects in abundance
+    alpha.star = 0.1,  #required because of random effects in detection
+    w = 0.1,           #latent factor scores (site-level effects)
+    lambda = 0.1       #latent factor loadings (species-level effects)
+  ),
+  n.factors = 3,
+  n.batch = 500,
+  batch.length = 25,
+  accept.rate = 0.43,
+  family = "Poisson",
+  transect = "point",
+  det.func = "halfnormal",
+  n.omp.threads = 1,
+  verbose = TRUE,
+  n.report = 50,
+  n.burn = round(0.1 * 500 * 25),
+  n.thin = 1,
+  n.chains = 1
+)
 
-#all.birds.s   <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
-#                formula=~species+sky, truncation = truncation_dist)
+# Extract the summary output
 
-#all.birds.t   <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
-#                formula=~species+temp, truncation = truncation_dist)
-#all.birds.w   <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
-#                formula=~species+wind, truncation = truncation_dist)
-#all.birds.n   <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
-#                formula=~species, truncation = truncation_dist)
+# Rearrange dimensions to [site, species, sample]
+N_array <- aperm(out$N.samples, c(3, 2, 1))  # Now: [32, 13, 11250]
 
-#aic_table <- AIC(all.birds.swt,                             # global model
-#                 all.birds.sw,all.birds.st,all.birds.tw,    # 2 cov only models
-#                 all.birds.s,all.birds.t,all.birds.w,       # 1 cov only models
-#                 all.birds.n                                # null model
-#                 )
+# Now compute posterior means: mean over the 3rd dimension (samples)
+N_means <- apply(N_array, c(1, 2), mean)  # [32 sites x 13 species]
+# 2. Create data frame
+abund_df <- as.data.frame(N_means)
+colnames(abund_df) <- out$sp.names
 
-#aic_table_df <- as.data.frame(aic_table) %>%
-#  tibble::rownames_to_column("Model") %>%
-#  arrange(AIC)
+# Convert to long format
+N_means_long <- as.data.frame(abund_df) %>%
+  mutate(site_index = 1:nrow(.)) %>%
+  pivot_longer(cols = -site_index,
+               names_to = "species",
+               values_to = "abundance")
 
-#print(aic_table_df)
+# Add site info (ensure matching order)
+site_info <- pc %>%
+  select(point_id, site_abb, site_name) %>%
+  distinct() %>%
+  mutate(site_index = row_number())
 
-#take best model and subset by site
+# Join
+plot_df <- left_join(N_means_long, site_info, by = "site_index")
 
-#best_mod <- ds(data = pc_ds, key="hn", convert_units = convunit,transect = "point",
-#                formula=~species, truncation = truncation_dist)
-
-
-
-## subset for each site
-
-
-# Arcadia
-pc_ds_a <- subset(pc_ds,pc_ds$Region.Label=="Arcadia")
-pc_ds_a$object <- seq(1,nrow(pc_ds_a),1)
-arca <- ds(data = pc_ds_a, key="hn", convert_units = convunit,
-           transect = "point", truncation = truncation_dist,
-           formula=~species)
-arca.ests <- dht2(ddf=arca, flatfile=pc_ds,transect = "point",
-                  strat_formula = ~species, convert_units = convunit,
-                  stratification = "object") 
-# Extract abundance estimates as a data frame
-temp <- data.frame(
-  species = arca.ests$species,
-  est = arca.ests$Abundance,
-  lower = arca.ests$LCI,
-  upper = arca.ests$UCI)
-
-# Separate out the 'Total' row
-arca_total <- temp %>% filter(species == "Total")
-
-# Remove the 'Total' row from main data
-temp <- temp %>% filter(species != "Total")
-
-
-# Plot in ggplot2
-arca_plot <- ggplot(temp, aes(x = species, y = est)) +
-  geom_point(size = 2) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
-  labs(title = "Arcadia",
-       x = "Species",
-       y = "Abundance") +
-  scale_y_continuous(limits = c(0, 15), expand = c(0, 0))+
-  coord_flip() +  # Optional: flip axes for readability
-  theme_bw()
-
-# Greenwood
-pc_ds_g <- subset(pc_ds,pc_ds$Region.Label=="Greenwood")
-pc_ds_g$object <- seq(1,nrow(pc_ds_g),1)
-gren <- ds(data = pc_ds_g, key="hn", convert_units = convunit,
-           transect = "point", truncation = truncation_dist,
-           formula=~species)
-
-gren.ests <- dht2(ddf=gren, flatfile=pc_ds,transect = "point",
-                  strat_formula = ~species, convert_units = convunit,
-                  stratification = "object") 
-# Extract abundance estimates as a data frame
-temp <- data.frame(
-  species = gren.ests$species,
-  est = gren.ests$Abundance,
-  lower = gren.ests$LCI,
-  upper = gren.ests$UCI)
-
-# Separate out the 'Total' row
-gren_total <- temp %>% filter(species == "Total")
-
-# Remove the 'Total' row from main data
-temp <- temp %>% filter(species != "Total")
+# Plot
 
 
-# Plot in ggplot2
-gren_plot <- ggplot(temp, aes(x = species, y = est)) +
-  geom_point(size = 2) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
-  labs(title = "Greenwood",
-       x = "Species",
-       y = "Abundance") +
-  scale_y_continuous(limits = c(0, 15), expand = c(0, 0))+
-  coord_flip() +  # Optional: flip axes for readability
-  theme_bw()
-# Livingston
-pc_ds_l <- subset(pc_ds,pc_ds$Region.Label=="Livingston Place")
-pc_ds_l$object <- seq(1,nrow(pc_ds_l),1)
-livi <- ds(data = pc_ds_l, key="hn", convert_units = convunit,
-           transect = "point", truncation = truncation_dist,
-           formula=~species)
-
-livi.ests <- dht2(ddf=livi, flatfile=pc_ds,transect = "point",
-                  strat_formula = ~species, convert_units = convunit,
-                  stratification = "object") 
-# Extract abundance estimates as a data frame
-temp <- data.frame(
-  species = livi.ests$species,
-  est = livi.ests$Abundance,
-  lower = livi.ests$LCI,
-  upper = livi.ests$UCI)
-
-# Separate out the 'Total' row
-livi_total <- temp %>% filter(species == "Total")
-
-# Remove the 'Total' row from main data
-temp <- temp %>% filter(species != "Total")
-
-
-# Plot in ggplot2
-livi_plot <- ggplot(temp, aes(x = species, y = est)) +
-  geom_point(size = 2) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
-  labs(title = "Livingston Place",
-       x = "Species",
-       y = "Abundance") +
-  scale_y_continuous(limits = c(0, 15), expand = c(0, 0))+
-  coord_flip() +  # Optional: flip axes for readability
-  theme_bw()
-
-# Tall Timbers
-pc_ds_t <- subset(pc_ds,pc_ds$Region.Label=="Tall Timbers")
-pc_ds_t$object <- seq(1,nrow(pc_ds_t),1)
-ttrs <- ds(data = pc_ds_t, key="hn", convert_units = convunit,
-           transect = "point", truncation = truncation_dist,
-           formula=~species)
-
-ttrs.ests <- dht2(ddf=ttrs, flatfile=pc_ds,transect = "point",
-                  strat_formula = ~species, convert_units = convunit,
-                  stratification = "object") 
-# Extract abundance estimates as a data frame
-temp <- data.frame(
-  species = ttrs.ests$species,
-  est = ttrs.ests$Abundance,
-  lower = ttrs.ests$LCI,
-  upper = ttrs.ests$UCI)
-
-# Separate out the 'Total' row
-ttrs_total <- temp %>% filter(species == "Total")
-
-# Remove the 'Total' row from main data
-temp <- temp %>% filter(species != "Total")
-
-
-# Plot in ggplot2
-ttrs_plot <- ggplot(temp, aes(x = species, y = est)) +
-  geom_point(size = 2) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
-  labs(title = "Tall Timbers",
-       x = "Species",
-       y = "Abundance") +
-  scale_y_continuous(limits = c(0, 15), expand = c(0, 0))+
-  coord_flip() +  # Optional: flip axes for readability
-  theme_bw()
-
-
-# arrange data to look at grand totals of cavity nesters across sites
-
-temp <- rbind(arca_total,gren_total,livi_total,ttrs_total)
-temp$site <- c("Arcadia","Greenwood","Livingston Place","Tall Timbers")
-
-# Plot in ggplot2
-total_plot <- ggplot(temp, aes(x = site, y = est)) +
-  geom_point(size = 2) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
-  labs(title = "",
-       x = "",
-       y = "Abundance") +
-  scale_y_continuous(limits = c(0, 45), expand = c(0, 0))+
-  coord_flip() +  # Optional: flip axes for readability
-  theme_bw()
 
 
 ```
+
+
 
 ## Summary plots for results thus far...
 
@@ -319,23 +217,17 @@ total_plot <- ggplot(temp, aes(x = site, y = est)) +
 #plotting
 
 
-#simple plot
+ggplot(plot_df, aes(x = factor(point_id), y = abundance, fill = species)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ species, scales = "free_y") +
+  theme_bw() +
+      theme(
+      axis.title = element_blank(),  # removes x and y axis titles
+      legend.position = "none"  # Hide legends from individual plots
+    ) +    
+  labs(x = "Point ID", y = "Estimated Abundance", fill = "Species") +
+  theme(axis.text.x = element_text(angle = 90))
 
-#plot(all.birds, showpoints=FALSE, main="Detection distances at point counts\nspecies as covariate")
-#add.df.covar.line(all.birds, data=data.frame(species="NOFL"), lwd=3, lty=1, col="blue")
-#add.df.covar.line(all.birds, data=data.frame(species="DOWO"), lwd=3, lty=1, col="darkgreen")
-#add.df.covar.line(all.birds, data=data.frame(species="RBWO"), lwd=3, lty=1, col="brown")
-#add.df.covar.line(all.birds, data=data.frame(species="RCWO"), lwd=3, lty=1, col="salmon")
-#add.df.covar.line(all.birds, data=data.frame(species="RHWO"), lwd=3, lty=1, col="red")
-#add.df.covar.line(all.birds, data=data.frame(species="PIWO"), lwd=3, lty=1, col="black")
-#legend("topright", legend=c("NOFL", "DOWO", "RBWO", "RCWO","RHWO","PIWO"),
-#       lwd=3, lty=1, col=c("blue", "darkgreen", "brown", "salmon","red","black"))
-
-
-#cowplot
-
-plot_grid(arca_plot, gren_plot, livi_plot, ttrs_plot,
-          nrow = 2, ncol = 2)#  for letters A-D use: labels = "AUTO"
 ```
 
 This plot (above) shows the abundance estimates for cavity nesting species at each study site individually. This data represents only March and April 2025.
