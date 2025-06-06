@@ -241,7 +241,7 @@ colnames(plot_df) <- c("site_index","species","mean","lower","upper","point_id",
 #plotting
 
 
-g <- ggplot(plot_df, aes(x = factor(point_id), y = mean, fill = species)) +
+ggplot(plot_df, aes(x = factor(point_id), y = mean, fill = species)) +
   geom_bar(stat = "identity", position = "dodge") +
   geom_errorbar(aes(ymin = lower, ymax = upper),
                 position = position_dodge(width = 0.9),
@@ -261,7 +261,8 @@ g <- ggplot(plot_df, aes(x = factor(point_id), y = mean, fill = species)) +
   scale_y_continuous(expand=c(0, 0))+ 
   labs(x = "Point ID", y = "Estimated Abundance", fill = "Species") +
   theme(axis.text.x = element_text(angle = 90))
-#ggsave("point_count_densities.png",g,dpi=300,height=6,width=6)
+# to save it call it object g and run the next line
+#ggsave("point_count_densities.png",g,dpi=300,height=7,width=9)
 ```
 
 This plot (above) shows the abundance estimates for cavity nesting species at each study site (separated by vertical dashed lines). This data represents only March and April 2025 since that's what we have entered into excel thus far. Species estimates are shown with their corresponding 95% credible intervals.
