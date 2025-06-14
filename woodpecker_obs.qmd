@@ -34,8 +34,8 @@ funk <- function(x){length(unique(x))}
 #####    load data    #####
 #
 # load each raw data file
-parent_form <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\form-1__woodpecker-obs.csv")
-child_form <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\form-2__behaviors.csv")
+parent_form <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\form-1__woodpecker-obs.csv")
+child_form <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\form-2__behaviors.csv")
 # merge them into one dataframe
 
 df <- merge(x=parent_form,y=child_form,by.x="ec5_uuid",by.y="ec5_parent_uuid")

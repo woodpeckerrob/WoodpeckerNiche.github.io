@@ -71,8 +71,14 @@ tls_meta_data$time <- hms(tls_meta_data$X1_time_during_scan)
 tls_meta_data <- tls_meta_data[with(tls_meta_data, order(date, time)), ]
 
 # remove scans that failed from meta
-failed <- c(75) # scan id
-tls_meta_data <- tls_meta_data[!tls_meta_data$X3_scan_id_num %in% failed, ]
+failed <- c("282e6ec2-f272-41b6-ba40-c0ac64e6c219", # scan 1188
+            "68619f9d-5c5a-4918-8766-f5ce310895e9"  # scan 75
+            )
+tls_meta_data <- tls_meta_data[!tls_meta_data$ec5_uuid %in% failed, ]
+
+# subset to dates at and before 6/10 since that's all the scan's I've converted to las so far (6/13/25)
+tls_meta_data <- subset(tls_meta_data,tls_meta_data$date <= as.Date("2025-06-10"))
+
 
 #TLS habitat structure data
 tls_hab_data <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\tls_habitat_metrics.csv")
@@ -86,8 +92,7 @@ tls_hab_data <- tls_hab_data[with(tls_hab_data, order(date, order)), ]
 tls_meta_data <- tls_meta_data[tls_meta_data$date %in% tls_hab_data$date, ]
 
 #temporarily remove june 6th until it is uploaded to epicollect
-tls_meta_data <- tls_meta_data[!tls_meta_data$date %in% "06_06_2025", ]
-tls_hab_data <- tls_hab_data[!tls_hab_data$date %in% "2025-06-06", ]
+tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "06_10_2025_Setup21", ]
 
 
 
