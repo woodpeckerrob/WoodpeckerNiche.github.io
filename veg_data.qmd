@@ -25,6 +25,7 @@ We collected information on dead trees (snags), burn history, and habitat struct
   library(cowplot)
   #library(lidR)
   library(rgl)
+  library(tidyr)
 }
 
 ###### load functions  #####
@@ -57,7 +58,11 @@ plots <- st_read("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.gi
 # load each raw data file
 
 #snag data
-s.dat <- read.csv("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\form-1__snag-locs.csv")
+s.dat <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\form-1__snag-locs.csv")
+
+# remove na's in coordinates for snag data
+s.dat <- s.dat[!is.na(s.dat$lat_7_location),]
+
 
 # example tls scan
 
@@ -77,7 +82,7 @@ failed <- c("282e6ec2-f272-41b6-ba40-c0ac64e6c219", # scan 1188
 tls_meta_data <- tls_meta_data[!tls_meta_data$ec5_uuid %in% failed, ]
 
 # subset to dates at and before 6/10 since that's all the scan's I've converted to las so far (6/13/25)
-tls_meta_data <- subset(tls_meta_data,tls_meta_data$date <= as.Date("2025-06-10"))
+tls_meta_data <- subset(tls_meta_data,tls_meta_data$date <= as.Date("2025-06-16"))
 
 
 #TLS habitat structure data
@@ -87,14 +92,19 @@ tls_hab_data$order <- as.numeric(substr(tls_hab_data$Scan_ID,17,19)) #correct th
 tls_hab_data <- tls_hab_data[-64,] #5-3-25 had an extra hab data that doesn't match meta. removing this one
 tls_hab_data <- tls_hab_data[with(tls_hab_data, order(date, order)), ]
 
-# subset the ones in meta-data by those in tls_hab_data
 
-tls_meta_data <- tls_meta_data[tls_meta_data$date %in% tls_hab_data$date, ]
+
 
 #temporarily remove june 6th until it is uploaded to epicollect
 tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "06_10_2025_Setup21", ]
+# remove 6-11-25, for some reason there is no metadata for it. maybe erica forgot to upload? probably at ARCA4
+tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "06_11_2025_Setup1", ]
+tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "06_11_2025_Setup2", ]
 
 
+# subset the ones in meta-data by those in tls_hab_data
+
+tls_meta_data <- tls_meta_data[tls_meta_data$date %in% tls_hab_data$date, ]
 
 ## matching tls meta data to hab data
 udays <- unique(tls_hab_data$date)
@@ -212,53 +222,72 @@ final_plot
 
 # Terrestrial laser scanning
 
-Terrestrial laser scanning (similar to LiDAR) is capable of deriving 200+ metrics from the environment in under two minutes by shooting lasers out in many directions and retrieving the resulting distance to conceptualize the structure of the environment. 
+
 
 ```{r}
 #| echo: false
 #| message: false
 #| warning: false
-#| include: false
 
-# Open a 3D device (in-memory for web widget)
-
-#cyl1 <- clip_circle(las, x = 0, y = 0, radius = 12)			# Make circle larger than you want it
-  
-  
-#cyl2 <- filter_poi(cyl1, Z > -1.8)
-#open3d()
-
-# Plot the point cloud (can also use intensity or classification as color)
-# Use plot3d from rgl, not base plot
-#plot3d(
-#  cyl2@data$X, cyl2@data$Y, cyl2@data$Z,
-#  col = rainbow(100)[as.numeric(cut(cyl2@data$Z, 100))],
-#  size = 1,
-#  type = "p",      # type "p" for points
-#  xlab = "X", ylab = "Y", zlab = "Z"
-#)
-
-# Output as HTML widget
-#rglwidget()
+# report on the number of scans done so far
+n_scans <- as.numeric(nrow(tls_meta_data))
+cat(paste("To date, we have obtained ",n_scans," scans across all plots."))
 
 
-#df <- cyl2@data
-#df2 <- df[,1:3]
-#colnames(df2) <- c("x","y","Height")
-# 2D top-down view (X vs Y), colored by Z
-#example <- ggplot(df2, aes(x = x, y = y, color = Height)) +
-#  geom_point(size = 0.5) +
-#  scale_color_viridis_c(limits=c(0,30)) +  # continuous viridis scale
-#  coord_fixed() +
-#  theme_bw()
-
-# stopping this image in casethis is why file sze limit is too big
-#![Top-down view of a terrestrial laser scan of a plot (clipped to 12m from scan center).](docs\\data\\raw\\tls_scan_dataexample_plot.png)
 ```
 
+Terrestrial laser scanning (similar to LiDAR) is capable of deriving 200+ metrics from the environment in under two minutes by shooting lasers out in many directions and retrieving the resulting distance to conceptualize the structure of the environment. To date, we have obtained `r n_scans` scans across all plots.
 
 # Snag data
+
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+##########################################
+##### getting summary data on snags ######
+
+
+# Assuming 'Plot_ID' is your unique polygon identifier
+
+# Step 1: Ensure matching CRS
+snag_sf <- st_transform(snag_sf, crs = st_crs(plots))
+
+# Step 2: Spatial join (points inherit polygon attributes)
+joined <- st_join(snag_sf, plots, left = FALSE)
+
+# Step 3: Count number of points per polygon
+point_counts <- joined %>%
+  st_drop_geometry() %>%  # Drop geometry to avoid sf issues in join
+  group_by(Plot_ID) %>%
+  summarise(n_points = n(), .groups = "drop")
+
+# Step 4: Join back to original plots
+plots_with_counts <- plots %>%
+  left_join(point_counts, by = "Plot_ID") %>%
+  mutate(n_points = replace_na(n_points, 0))  # Replace NAs with 0
+
+#print(plots_with_counts)
+
+
+# tell us how many there are in each plot where we have thus far, done surveys
+snag_sub <- subset(plots_with_counts,plots_with_counts$n_points>0)
+
+perc_of_plots_sampled <- round((nrow(snag_sub)/32)*100,2)
+mean_snags_per_plot <- round(mean(snag_sub$n_points),2)
+min_snags <- as.numeric(min(snag_sub$n_points))
+max_snags <- as.numeric(max(snag_sub$n_points))
+sum_snags <- as.numeric(sum(snag_sub$n_points))
+
+
+```
 
 There's a lot of life after death when thinking about dead trees. In the early stages of death, dead trees may become hot-spots of food for woodpeckers as beetle larvae eat at the more susceptible wood. But after a few months, this resource decreases as beetles mature and consume most of the nutritious parts of the tree. Then, over many years the tree decomposes and become a nesting resource for cavity-nesting birds and other taxons. 
 
 Here, we describe the quality and quantity of these snag resources. There are many ways to quantify a dead tree including decay class, diameter at breast height (DBH), amount of dead wood, amount of bark, and species. This diversity of snag characteristics within a plot my lead to more diversity within the plot. Thus, I will reduce this dimensionality in the data using multivariate statistics. This will result in a one or two metrics that can be used for further analysis.
+
+We have sampled `r perc_of_plots_sampled`% of all plots for the presence of dead trees. On average, there are `r mean_snags_per_plot` snags per plot (range: `r min_snags` - `r max_snags`) for a total of `r sum_snags` snags recorded across all plots.
+
+
