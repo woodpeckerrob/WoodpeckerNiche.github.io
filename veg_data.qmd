@@ -53,7 +53,7 @@ plot_one <- function(plot_id) {
 #
 
 #plots shapefile
-plots <- st_read("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\shapefiles\\Ch2_all_study_plots.shp")
+plots <- st_read("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\shapefiles\\Ch2_all_study_plots.shp")
 
 # load each raw data file
 
