@@ -2,7 +2,6 @@
 title: "Habitat Assessment"
 ---
 
-Test
 
 Habitat variables were obtained to explain the patterns in foraging behavior of each species as an alternative hypothesis. Habitat metrics also provide context for the study and makes it more translatable to other systems. 
 

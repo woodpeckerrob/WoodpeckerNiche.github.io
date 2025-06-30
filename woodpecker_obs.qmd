@@ -62,6 +62,16 @@ df <- df|>
 df$X6_date <- as.Date(df$X6_date, format = "%m/%d/%Y")
 df$month <- as.numeric(format(df$X6_date, "%m"))
 df$X3_Plot_number <- as.numeric(df$X3_Plot_number)
+
+#fix hawking and ground so it's consistent and there's no tree info
+
+dftest <- df %>%
+  mutate(X11_Substrate = if_else(X10_Foraging_type == "Hawking", "air", X11_Substrate)) %>%
+    mutate(X12_where = if_else(X10_Foraging_type == "Hawking", "air", X12_where)) %>%
+  mutate(X11_Substrate = if_else(X12_where == "ground", "ground", X11_Substrate))%>%
+    mutate(X12_where = if_else(X10_Foraging_type == "ground", "ground", X12_where))
+
+
 ```
 
 ```{r}
@@ -186,6 +196,48 @@ hist
 ```
 
 
+```{r}
+#| echo: false
+#| message: false
+#| include: false
+################################
+##### getting hypervolumes #####
+
+# need to convert each column to a percentage, then take each species by month if more than 5 obs are taken, and do hypervolume overlap
+
+#make month col
+#df$month_name <- format(df$X6_date, format = "%B")
+#df$month_num <- format(df$X6_date, format = "%m")
+
+#hyper_df <- df %>% dplyr::select("X8_Species","month_num","X10_Foraging_type","X11_Substrate","X12_where","X13_if_dead_decay_cla","X15_tree_size_class","X22_height_ratio","X16_time_spent_sec")
+#colnames(hyper_df) <- c("species","month","foraging_type","substrate","where","decay_class","tree_size","height_ratio","time")
+#hyper_df <- hyper_df[!apply(hyper_df == "", 1, any), ]
+
+
+# Step 1: Bin the height_ratio values
+#hyper_df_binned <- hyper_df %>%
+#  mutate(
+#    height_bin = case_when(
+#      height_ratio == 0 ~ "0",
+#      height_ratio >= 1 & height_ratio <= 25 ~ "1-25",
+#      height_ratio >= 26 & height_ratio <= 50 ~ "26-50",
+#      height_ratio >= 51 & height_ratio <= 75 ~ "51-75",
+#      height_ratio >= 76 & height_ratio <= 100 ~ "76-100",
+#      TRUE ~ "unknown"
+#    )
+#  )#%>%
+#  select(species, foraging_type, substrate, where, decay_class, tree_size, height_bin, time)
+
+
+
+
+
+
+
+
+```
+
+
 
 # March Observations
 
@@ -289,6 +341,19 @@ print(kable(tab, caption = paste("June observations by species and plot")))
 ```
 
 ## July coming soon...
+
+
+```{r}
+#| echo: false
+#| message: false
+#| include: false
+#create hypervolumes
+
+
+
+
+
+```
 
 
 
