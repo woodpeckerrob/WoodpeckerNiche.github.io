@@ -54,6 +54,7 @@ pc <- pc[pc$real_distance_m <= truncation_dist, ]
 pc <- pc %>%
   filter(!is.na(real_distance_m), real_distance_m <= truncation_dist) %>%
   filter(!species %in% c("YBSA", "WODU")) %>%
+  filter(!double_obs %in% "y") %>%
   left_join(.,sites,by="point_id")
 pc <- pc %>%
   # Convert date to Date format
