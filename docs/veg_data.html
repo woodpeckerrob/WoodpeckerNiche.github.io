@@ -163,16 +163,59 @@ ul.task-list li input[type="checkbox"] {
 <h1>Terrestrial laser scanning</h1>
 <div class="cell">
 <div class="cell-output cell-output-stdout">
-<pre><code>To date, we have obtained  427  scans across all plots.</code></pre>
+<pre><code>To date, we have obtained  575  scans across all plots.</code></pre>
 </div>
 </div>
-<p>Terrestrial laser scanning (similar to LiDAR) is capable of deriving 200+ metrics from the environment in under two minutes by shooting lasers out in many directions and retrieving the resulting distance to conceptualize the structure of the environment. To date, we have obtained 427 scans across all plots.</p>
+<p>Terrestrial laser scanning (similar to LiDAR) is capable of deriving 200+ metrics from the environment in under two minutes by shooting lasers out in many directions and retrieving the resulting distance to conceptualize the structure of the environment. To date, we have obtained 575 scans across all plots.</p>
 </section>
 <section id="snag-data" class="level1">
 <h1>Snag data</h1>
 <p>There’s a lot of life after death when thinking about dead trees. In the early stages of death, dead trees may become hot-spots of food for woodpeckers as beetle larvae eat at the more susceptible wood. But after a few months, this resource decreases as beetles mature and consume most of the nutritious parts of the tree. Then, over many years the tree decomposes and become a nesting resource for cavity-nesting birds and other taxons.</p>
 <p>Here, we describe the quality and quantity of these snag resources. There are many ways to quantify a dead tree including decay class, diameter at breast height (DBH), amount of dead wood, amount of bark, and species. This diversity of snag characteristics within a plot my lead to more diversity within the plot. Thus, I will reduce this dimensionality in the data using multivariate statistics. This will result in a one or two metrics that can be used for further analysis.</p>
-<p>We have sampled 71.88% of all plots for the presence of dead trees. On average, there are 25.35 snags per plot (range: 3 - 54) for a total of 583 snags recorded across all plots.</p>
+<p>We have sampled most of all plots for the presence of dead trees. On average, there are 22.41 snags per plot (range: 0 - 54) for a total of 717 snags recorded across all plots.</p>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>
+
+Table: Number of snags per plot.
+
+| Plot_ID| num_snags|
+|-------:|---------:|
+|       1|         9|
+|       2|        31|
+|       3|        24|
+|       4|         0|
+|       5|        29|
+|       6|        34|
+|       7|        41|
+|       8|         0|
+|       9|        25|
+|      10|        22|
+|      11|        37|
+|      12|        28|
+|      13|        34|
+|      14|        26|
+|      15|        12|
+|      16|        30|
+|      17|         0|
+|      18|        10|
+|      19|         2|
+|      20|         3|
+|      21|        20|
+|      22|        15|
+|      23|        14|
+|      24|        22|
+|      25|        32|
+|      26|        30|
+|      27|        13|
+|      28|        36|
+|      29|        27|
+|      30|        36|
+|      31|        54|
+|      32|        21|</code></pre>
+</div>
+</div>
+<p>We also want to know something about the diversity of these snags that are in each plot. Are all snags created equal? as mentioned before, probably not, we derive a diversity metric from all the snag’s qualities within a plot. How big is it, how decayed is it, is it a pine or hardwood, and use these to get a Gower distance for the plots.</p>
 
 
 </section>

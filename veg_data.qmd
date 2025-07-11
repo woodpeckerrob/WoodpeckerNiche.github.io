@@ -16,6 +16,7 @@ We collected information on dead trees (snags), burn history, and habitat struct
 #####    load packages and functions    #####
 {
   library(dplyr)
+  library(knitr)
   library(ggplot2)
   library(geosphere)
   library(lubridate)
@@ -81,7 +82,7 @@ failed <- c("282e6ec2-f272-41b6-ba40-c0ac64e6c219", # scan 1188
 tls_meta_data <- tls_meta_data[!tls_meta_data$ec5_uuid %in% failed, ]
 
 # subset to dates at and before 6/10 since that's all the scan's I've converted to las so far (6/13/25)
-tls_meta_data <- subset(tls_meta_data,tls_meta_data$date <= as.Date("2025-06-16"))
+#tls_meta_data <- subset(tls_meta_data,tls_meta_data$date <= as.Date("2025-06-16"))
 
 
 #TLS habitat structure data
@@ -99,6 +100,14 @@ tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "06_10_2025_Setup21", ]
 # remove 6-11-25, for some reason there is no metadata for it. maybe erica forgot to upload? probably at ARCA4
 tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "06_11_2025_Setup1", ]
 tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "06_11_2025_Setup2", ]
+tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "05_02_2025_Setup10", ]
+tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "06_25_2025_Setup33", ]
+tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "07_07_2025_Setup42", ]
+
+
+tls_hab_data <- tls_hab_data[!tls_hab_data$date %in% "2025-07-01", ]
+
+
 
 
 # subset the ones in meta-data by those in tls_hab_data
@@ -205,6 +214,10 @@ final_plot <- cowplot::plot_grid(
   ncol = 2,
   rel_widths = c(0.85, 0.15)  # Adjust spacing if needed
 )
+
+
+
+
 ```
 
 
@@ -258,27 +271,53 @@ snag_sf <- st_transform(snag_sf, crs = st_crs(plots))
 joined <- st_join(snag_sf, plots, left = FALSE)
 
 # Step 3: Count number of points per polygon
-point_counts <- joined %>%
+snag_tab <- joined %>%
   st_drop_geometry() %>%  # Drop geometry to avoid sf issues in join
   group_by(Plot_ID) %>%
   summarise(n_points = n(), .groups = "drop")
 
+colnames(snag_tab) <- c("Plot_ID","Number_of_snags")
 # Step 4: Join back to original plots
 plots_with_counts <- plots %>%
-  left_join(point_counts, by = "Plot_ID") %>%
-  mutate(n_points = replace_na(n_points, 0))  # Replace NAs with 0
+  left_join(snag_tab, by = "Plot_ID") %>%
+  mutate(n_points = replace_na(Number_of_snags, 0))  # Replace NAs with 0
 
 #print(plots_with_counts)
 
 
-# tell us how many there are in each plot where we have thus far, done surveys
-snag_sub <- subset(plots_with_counts,plots_with_counts$n_points>0)
 
-perc_of_plots_sampled <- round((nrow(snag_sub)/32)*100,2)
-mean_snags_per_plot <- round(mean(snag_sub$n_points),2)
-min_snags <- as.numeric(min(snag_sub$n_points))
-max_snags <- as.numeric(max(snag_sub$n_points))
-sum_snags <- as.numeric(sum(snag_sub$n_points))
+
+# Step 1: Spatial join - assign plot info to each snag
+snags_with_plot <- st_join(snag_sf, plots, left = FALSE)
+
+# Step 2: Count snags per plot (only those that have snags)
+snag_counts <- snags_with_plot %>%
+  st_drop_geometry() %>%
+  count(Plot_ID, name = "num_snags")
+
+# Step 3: Ensure all plots are included, join with full plot list
+all_plot_ids <- plots %>%
+  st_drop_geometry() %>%
+  select(Plot_ID)
+
+snag_count_by_plot <- all_plot_ids %>%
+  left_join(snag_counts, by = "Plot_ID") %>%
+  mutate(num_snags = replace_na(num_snags, 0)) %>%
+  arrange(Plot_ID)
+
+
+
+# tell us how many there are in each plot where we have thus far, done surveys
+#snag_sub <- subset(plots_with_counts,plots_with_counts$n_points>0)
+
+mean_snags_per_plot <- round(mean(snag_count_by_plot$num_snags),2)
+min_snags <- as.numeric(min(snag_count_by_plot$num_snags))
+max_snags <- as.numeric(max(snag_count_by_plot$num_snags))
+sum_snags <- as.numeric(sum(snag_count_by_plot$num_snags))
+
+
+
+
 
 
 ```
@@ -287,6 +326,65 @@ There's a lot of life after death when thinking about dead trees. In the early s
 
 Here, we describe the quality and quantity of these snag resources. There are many ways to quantify a dead tree including decay class, diameter at breast height (DBH), amount of dead wood, amount of bark, and species. This diversity of snag characteristics within a plot my lead to more diversity within the plot. Thus, I will reduce this dimensionality in the data using multivariate statistics. This will result in a one or two metrics that can be used for further analysis.
 
-We have sampled `r perc_of_plots_sampled`% of all plots for the presence of dead trees. On average, there are `r mean_snags_per_plot` snags per plot (range: `r min_snags` - `r max_snags`) for a total of `r sum_snags` snags recorded across all plots.
+We have sampled most of all plots for the presence of dead trees. On average, there are `r mean_snags_per_plot` snags per plot (range: `r min_snags` - `r max_snags`) for a total of `r sum_snags` snags recorded across all plots.
+
+```{r}
+#| echo: false
+#| message: false
+
+#print snag table
+print(kable(snag_count_by_plot, caption = paste("Number of snags per plot.")))
+
+
+```
+
+
+We also want to know something about the diversity of these snags that are in each plot. Are all snags created equal? as mentioned before, probably not, we derive a diversity metric from all the snag's qualities within a plot. How big is it, how decayed is it, is it a pine or hardwood, and use these to get a Gower distance for the plots.
+
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+#########################################
+#####   snag diversity per plot    ######
+
+
+library(cluster)  # for daisy()
+library(tibble)   # for tidy data manipulation
+library(readr)
+# Ensure key fields are preprocessed
+snags_with_plot_clean <- snags_with_plot %>%
+  st_drop_geometry() %>%
+  filter(!is.na(Plot_ID)) %>%
+  mutate(
+    species_group = case_when(
+      grepl("hardwood|live oak|water oak|Quercus|sweetgum", X2_species, ignore.case = TRUE) ~ "Hardwood",
+      grepl("pine|pinus|PIEC|PITA|PIPA|PIEL", X2_species, ignore.case = TRUE) ~ "Pine",
+      TRUE ~ "Unknown"
+    ),
+    decay_class = as.numeric(decay),
+    size_class = parse_number(X4_size_class)  # grabs lower bound of size bin
+  ) %>%
+  select(Plot_ID, species_group, decay_class, size_class, #X9_number_of_cavities,
+         X10_percent_punky_woo, X11_percent_bark)
+
+# Create Gower dissimilarity per plot
+diversity_by_plot <- snags_with_plot_clean %>%
+  group_by(Plot_ID) %>%
+  group_modify(~ {
+    if (nrow(.x) <= 1) {
+      return(tibble(diversity = NA_real_))
+    }
+    gower_dist <- daisy(.x[, -1], metric = "gower")
+    mean_dist <- mean(gower_dist, na.rm = TRUE)
+    tibble(diversity = mean_dist)
+  }) %>%
+  ungroup()
+
+
+```
+
 
 
