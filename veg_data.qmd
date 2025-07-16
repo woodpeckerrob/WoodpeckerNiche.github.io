@@ -248,7 +248,54 @@ cat(paste("To date, we have obtained ",n_scans," scans across all plots."))
 
 ```
 
-Terrestrial laser scanning (similar to LiDAR) is capable of deriving 200+ metrics from the environment in under two minutes by shooting lasers out in many directions and retrieving the resulting distance to conceptualize the structure of the environment. To date, we have obtained `r n_scans` scans across all plots.
+Terrestrial laser scanning (similar to LiDAR) is capable of deriving 200+ metrics from the environment in under two minutes by shooting lasers out in many directions and retrieving the resulting distance to conceptualize the structure of the environment. To date, we have obtained `r n_scans` scans across all plots. Belo are the results from those scans.
+
+
+```{r}
+#| echo: false
+#| include: false
+#| message: false
+
+####################################
+#####  summarize habitat data  #####
+
+# fix something from earlier first
+for(i in 1:nrow(tls_with_plots)){
+  if(tls_with_plots$max_canopy_height_m[i]=="#NAME?"){
+    tls_with_plots$max_canopy_height_m[i] <- 0
+  }
+}
+tls_with_plots$max_canopy_height_m <- as.numeric(tls_with_plots$max_canopy_height_m)
+
+
+
+hab_sum_df <- tls_with_plots %>%
+  group_by(Plot_ID) %>%
+  summarize(cover_mean = mean(percent_vertical_cover),
+            tree_mean = mean(num_trees),
+            understory_percent_mean=mean(understory_percent),
+            midstory_percent_mean=mean(midstory_percent),
+            overstory_percent_mean=mean(overstory_percent),
+            BA_mean=mean(basal_area_m),
+            max_canopy_height_mean=mean(max_canopy_height_m),
+            pine_percent=(sum(X4_num_pines_within_1)/(sum(X4_num_pines_within_1)+sum(X5_num_hardwood_withi)))*100
+            )
+hab_sum_df <- hab_sum_df %>%
+  right_join(data.frame(Plot_ID=c(seq(1,32,1))), by = "Plot_ID") %>%
+  arrange(Plot_ID)
+hab_sum_df[is.na(hab_sum_df)] <- 0 
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+
+#print snag table
+print(kable(hab_sum_df, caption = paste("Habitat variables for each plot.")))
+
+
+```
 
 # Snag data
 
@@ -315,6 +362,22 @@ min_snags <- as.numeric(min(snag_count_by_plot$num_snags))
 max_snags <- as.numeric(max(snag_count_by_plot$num_snags))
 sum_snags <- as.numeric(sum(snag_count_by_plot$num_snags))
 
+
+
+#merge habitat data and snag data
+combo_plot_sum_df <- hab_sum_df %>%
+  left_join(snag_count_by_plot, by = "Plot_ID") %>%
+  arrange(Plot_ID)
+
+#############################
+##### plot correlations #####
+
+
+library(corrplot)
+library(RColorBrewer)
+temp <- as.data.frame(combo_plot_sum_df) %>% select(-Plot_ID,-geometry)
+
+corrplot(cor(temp))
 
 
 
