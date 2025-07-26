@@ -143,10 +143,10 @@ covs$site <- as.character(covs$point_id)
 rownames(covs) <- covs$site
 
 # Abundance: differences between sites (random intercepts by site)
-abund_formula <- ~  site_name
+abund_formula <- ~  1 + (1 | point_id)
 
 # Detection: wind and sky with random intercepts (or slopes) by site if needed
-det_formula <- ~ wind + sky + (1 | point_id)
+det_formula <- ~ wind + sky 
 
 data_list <- list(
   y = y_array,
@@ -179,7 +179,7 @@ out <- lfMsDS(
   tuning = list(
     beta = 0.1,
     alpha = 0.1,
-    #beta.star = 0.1,   #required because of random effects in abundance
+    beta.star = 0.1,   #required because of random effects in abundance
     alpha.star = 0.1,  #required because of random effects in detection
     w = 0.1,           #latent factor scores (site-level effects)
     lambda = 0.1       #latent factor loadings (species-level effects)
