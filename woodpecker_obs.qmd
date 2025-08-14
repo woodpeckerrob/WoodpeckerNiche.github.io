@@ -25,6 +25,9 @@ Woodpecker observation data collected thus far. Data is arranged by plot, specie
   library(ca)
   library(hypervolume)
   library(cluster) # for gower
+  #devtools::install_github("cmartin/ggConvexHull")
+  library(ggConvexHull)
+
 
 }
 
@@ -370,8 +373,8 @@ print(kable(tab, caption = paste("August observations by species and plot")))
 df$month_name <- format(df$X6_date, format = "%B")
 df$month_num <- format(df$X6_date, format = "%m")
 
-hyper_df <- df %>% dplyr::select("X8_Species","month_num","X10_Foraging_type","X11_Substrate","X12_where","X13_if_dead_decay_cla","X15_tree_size_class","X22_height_ratio","X16_time_spent_sec")
-colnames(hyper_df) <- c("species","month","foraging_type","substrate","where","decay_class","tree_size","height_ratio","time")
+hyper_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X11_Substrate","X12_where","X13_if_dead_decay_cla","X15_tree_size_class","X22_height_ratio","X16_time_spent_sec")
+colnames(hyper_df) <- c("species","plot","month","foraging_type","substrate","where","decay_class","tree_size","height_ratio","time")
 
 
 # Step 1: Bin the height_ratio values
@@ -402,12 +405,12 @@ hyper_df2$decay_class <- sub("8 well-decayed bole, ﹤3m", "dead_tree", hyper_df
 
 #
 hyper_long <- hyper_df2 %>%
-  unite("combo", foraging_type, substrate, where, decay_class, sep = ".") %>%
-  select(species,combo, time, month)
+  unite("combo",  substrate, where, decay_class, sep = ".") %>% #foraging_type,
+  select(species,combo, time, plot)
 hyper_wide <- hyper_long %>%
   mutate(id = row_number()) %>%
   pivot_wider(names_from = combo, values_from = time, values_fill = 0 )%>%
-  select(species,month,id, where(~ is.numeric(.) && sum(.) > 0))
+  select(species,plot,id, where(~ is.numeric(.) && sum(.) > 0))
 
 colnames(hyper_wide) <- gsub("/", "", colnames(hyper_wide))
 # Step 1: Extract foraging type prefixes
@@ -433,22 +436,22 @@ hyper_data$id <- NULL
 hyper_data <- subset(hyper_data,hyper_data$species!="HAWO")
 
 hyper_data_mean <- hyper_data %>%
-  group_by(species, month) %>%
+  group_by(species, plot) %>%
   summarise(across(where(is.numeric), mean, na.rm = TRUE))# %>%
   #summarise(count = n())
 
 hyper_data_weighted <- hyper_data %>%
-  group_by(species, month) %>%
+  group_by(species, plot) %>%
   summarise(across(where(is.numeric), sum, .names = "sum_{.col}")) %>%
   mutate(total = rowSums(across(starts_with("sum_")))) %>%
   mutate(across(starts_with("sum_"), ~ (. / total) * 100, .names = "pct_{.col}")) %>%
-  select(species, month, starts_with("pct_"))
+  select(species, plot, starts_with("pct_"))
 
 #########################
 #####  Ordinations  #####
 
 data_df <- hyper_data_weighted %>%
-  select(-species,-month)
+  select(-species,-plot)
 data_df$species <- NULL
 gower_dist <- daisy(data_df, metric = "gower")
 
@@ -482,18 +485,23 @@ pcoa_result <- ape::pcoa(gower_dist)
 data.scores <- as.data.frame(pcoa_result$vectors[, 1:2])
 #data.scores <- as.data.frame(pcoa_result$points)  #Using the scores function from vegan to extract 
 data.scores$sp <- hyper_data_weighted$species  #  create a column of ocean names, from the original data frame 
-data.scores$mo <- hyper_data_weighted$month
+data.scores$plot <- hyper_data_weighted$plot
 
-
+var_explained <- pcoa_result$values$Relative_eig[1:2] * 100  # First two axes
+xlab <- paste0("PCoA Axis 1 (", round(var_explained[1], 1), "%)")
+ylab <- paste0("PCoA Axis 2 (", round(var_explained[2], 1), "%)")
 
 pcoa_plot <- ggplot(data.scores, aes(x= Axis.1, y= Axis.2, col=sp)) + #denote groupings by color "col" and shape
-  geom_point(aes(size=mo)) +#adds points
+  geom_point(aes(size=plot)) +#adds points
   #geom_text(aes(label=rownames(data.scores)),hjust=0, vjust=0)+#adds island names
-  stat_ellipse() +#adds ellipses
+  #stat_ellipse() +#adds ellipses
+  geom_convexhull(aes(fill = sp), alpha = 0.1)+ # for convex hull
   theme_bw() +
 #  xlim(-1.5, 1.5)+
  # ylim(-1.5,1.5)+
-  labs(title = "PCoA Plot")
+    labs(title = "Substrate PCoA Plot",
+       x = xlab,
+       y = ylab)
 
 ```
 
@@ -504,8 +512,119 @@ Now let's see how this looks in multidimensional space. We use a principle coord
 #| message: false
 #| warning: false
 #| label: Figure 3
-#| fig-cap: "Principle coordinate analysis (PCoA) on the foraging observations by species and month."
+#| fig-cap: "Principle coordinate analysis (PCoA) on the substrate observations by species and plot"
 #| fig-alt: "PCoA plot"
 pcoa_plot
 ```
 
+And for foraging behavior...
+
+```{r}
+#| echo: false
+#| message: false
+#| include: false
+################################
+##### getting hypervolumes #####
+
+
+hyper_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X16_time_spent_sec")
+colnames(hyper_df) <- c("species","plot","month","foraging_type","time")
+
+
+
+
+hyper_wide <- hyper_df %>%
+  mutate(id = row_number()) %>%
+  pivot_wider(names_from = foraging_type, values_from = time, values_fill = 0 )%>%
+  select(species,plot,id, where(~ is.numeric(.) && sum(.) > 0))
+
+colnames(hyper_wide) <- gsub("/", "", colnames(hyper_wide))
+
+
+
+#hyper_summarized$species <- hyper_df2$species
+
+hyper_data <- hyper_wide
+hyper_data$id <- NULL
+hyper_data <- subset(hyper_data,hyper_data$species!="HAWO")
+
+hyper_data_mean <- hyper_data %>%
+  group_by(species, plot) %>%
+  summarise(across(where(is.numeric), mean, na.rm = TRUE))# %>%
+  #summarise(count = n())
+
+hyper_data_weighted <- hyper_data %>%
+  group_by(species, plot) %>%
+  summarise(across(where(is.numeric), sum, .names = "sum_{.col}")) %>%
+  mutate(total = rowSums(across(starts_with("sum_")))) %>%
+  mutate(across(starts_with("sum_"), ~ (. / total) * 100, .names = "pct_{.col}")) %>%
+  select(species, plot, starts_with("pct_"))
+
+#########################
+#####  Ordinations  #####
+
+data_df <- hyper_data_weighted %>%
+  select(-species,-plot)
+data_df$species <- NULL
+gower_dist <- daisy(data_df, metric = "gower")
+
+
+nmds_mod <- metaMDS(gower_dist, k = 2, trace = T)
+#nmds_mod
+
+#stressplot(nmds_mod)
+
+data.scores <- as.data.frame(nmds_mod$points)  #Using the scores function from vegan to extract 
+#                                                the site scores and convert to a data.frame
+data.scores$sp <- hyper_data_weighted$species  #  create a column of ocean names, from the original data frame 
+#head(data.scores)  #look at the data
+
+ggplot(data.scores, aes(x= MDS1, y= MDS2, col=sp)) + #denote groupings by color "col" and shape
+  geom_point() +#adds points
+  #geom_text(aes(label=rownames(data.scores)),hjust=0, vjust=0)+#adds island names
+  geom_convexhull(aes(fill = sp), alpha = 0.3)+
+  theme_bw() +
+#  xlim(-1.5, 1.5)+
+ # ylim(-1.5,1.5)+
+  labs(title = "NMDS Plot")
+
+
+### PCoA
+
+#pcoa_result <- cmdscale(gower_dist, eig = TRUE, k = 2) # k = number of dimensions
+pcoa_result <- ape::pcoa(gower_dist)
+
+# Extract scores for first two axes
+data.scores <- as.data.frame(pcoa_result$vectors[, 1:2])
+#data.scores <- as.data.frame(pcoa_result$points)  #Using the scores function from vegan to extract 
+data.scores$sp <- hyper_data_weighted$species  #  create a column of ocean names, from the original data frame 
+data.scores$plot <- hyper_data_weighted$plot
+
+var_explained <- pcoa_result$values$Relative_eig[1:2] * 100  # First two axes
+xlab <- paste0("PCoA Axis 1 (", round(var_explained[1], 1), "%)")
+ylab <- paste0("PCoA Axis 2 (", round(var_explained[2], 1), "%)")
+
+pcoa_plot_for <- ggplot(data.scores, aes(x= Axis.1, y= Axis.2, col=sp)) + #denote groupings by color "col" and shape
+  geom_point(aes(size=plot)) +#adds points
+  #geom_text(aes(label=rownames(data.scores)),hjust=0, vjust=0)+#adds island names
+  #stat_ellipse() +#adds ellipses
+  geom_convexhull(aes(fill = sp), alpha = 0.1)+
+  theme_bw() +
+#  xlim(-1.5, 1.5)+
+ # ylim(-1.5,1.5)+
+  labs(title = "Foraging Behavior PCoA Plot",
+       x = xlab,
+       y = ylab)
+
+```
+
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: Figure 4
+#| fig-cap: "Principle coordinate analysis (PCoA) on the foraging behavior observations by species and plot"
+#| fig-alt: "PCoA plot 2"
+pcoa_plot_for
+```
