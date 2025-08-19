@@ -14,6 +14,7 @@ Woodpecker observation data collected thus far. Data is arranged by plot, specie
 {
   library(dplyr)
   library(ggplot2)
+  library(ggforce)
   library(cowplot)
   library(plot3D)
   library("plot3Drgl")
@@ -44,6 +45,9 @@ funk <- function(x){length(unique(x))}
 # load each raw data file
 parent_form <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\form-1__woodpecker-obs.csv")
 child_form <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\form-2__behaviors.csv")
+burn_history_plot_level <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\plot_by_year_burn_dates.csv")
+burn_history_plot_level$Date.of.burn <- as.Date(burn_history_plot_level$Date.of.burn, format = "%m/%d/%Y")
+
 # merge them into one dataframe
 
 df <- merge(x=parent_form,y=child_form,by.x="ec5_uuid",by.y="ec5_parent_uuid")
@@ -73,13 +77,25 @@ df$X3_Plot_number <- as.numeric(df$X3_Plot_number)
 
 #fix hawking and ground so it's consistent and there's no tree info
 
-dftest <- df %>%
+df <- df %>%
   mutate(X11_Substrate = if_else(X10_Foraging_type == "Hawking", "air", X11_Substrate)) %>%
     mutate(X12_where = if_else(X10_Foraging_type == "Hawking", "air", X12_where)) %>%
   mutate(X11_Substrate = if_else(X12_where == "ground", "ground", X11_Substrate))%>%
     mutate(X12_where = if_else(X10_Foraging_type == "ground", "ground", X12_where))
 
+# add time since fire
+df$time_since_burn <- NA
 
+for(i in 1:nrow(df)){
+  temp <- subset(burn_history_plot_level,burn_history_plot_level$plot_id==df$X3_Plot_number[i])
+  temp <- subset(temp,temp$Date.of.burn<=df$X6_date[i])
+  days_since_burn <- as.numeric(df$X6_date[i]-max(temp$Date.of.burn)) #difference in days
+  if(days_since_burn<=365){
+    df$time_since_burn[i] <- 1 # less than 1 year since burn
+  }else{
+    df$time_since_burn[i] <- 2 # more than 1 year since burn
+  }
+}
 ```
 
 ```{r}
@@ -373,11 +389,12 @@ print(kable(tab, caption = paste("August observations by species and plot")))
 df$month_name <- format(df$X6_date, format = "%B")
 df$month_num <- format(df$X6_date, format = "%m")
 
-hyper_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X11_Substrate","X12_where","X13_if_dead_decay_cla","X15_tree_size_class","X22_height_ratio","X16_time_spent_sec")
-colnames(hyper_df) <- c("species","plot","month","foraging_type","substrate","where","decay_class","tree_size","height_ratio","time")
+hyper_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X11_Substrate","X12_where","X13_if_dead_decay_cla","X15_tree_size_class","X22_height_ratio","X16_time_spent_sec","time_since_burn")
+colnames(hyper_df) <- c("species","plot","month","foraging_type","substrate","where","decay_class","tree_size","height_ratio","time","time_since_burn")
+hyper_df$plot <- paste0(hyper_df$plot,"_",hyper_df$time_since_burn)
+hyper_df$time_since_burn <- NULL
 
-
-# Step 1: Bin the height_ratio values
+# Step 1: Bin the height_ratNULL# Step 1: Bin the height_ratio values
 hyper_df2 <- hyper_df %>%
   mutate(
     height_bin = case_when(
@@ -435,13 +452,19 @@ hyper_data <- hyper_summarized
 hyper_data$id <- NULL
 hyper_data <- subset(hyper_data,hyper_data$species!="HAWO")
 
+#make hawking one thing
+hyper_data$air <- hyper_data$air.air.dead_tree+hyper_data$air.air.live_tree
+hyper_data$air.air.dead_tree <- NULL
+hyper_data$air.air.live_tree <- NULL
+
+
 hyper_data_mean <- hyper_data %>%
-  group_by(species, plot) %>%
+  group_by(species, plot) %>%                                    
   summarise(across(where(is.numeric), mean, na.rm = TRUE))# %>%
   #summarise(count = n())
 
 hyper_data_weighted <- hyper_data %>%
-  group_by(species, plot) %>%
+  group_by(species, plot,) %>%
   summarise(across(where(is.numeric), sum, .names = "sum_{.col}")) %>%
   mutate(total = rowSums(across(starts_with("sum_")))) %>%
   mutate(across(starts_with("sum_"), ~ (. / total) * 100, .names = "pct_{.col}")) %>%
@@ -485,14 +508,42 @@ pcoa_result <- ape::pcoa(gower_dist)
 data.scores <- as.data.frame(pcoa_result$vectors[, 1:2])
 #data.scores <- as.data.frame(pcoa_result$points)  #Using the scores function from vegan to extract 
 data.scores$sp <- hyper_data_weighted$species  #  create a column of ocean names, from the original data frame 
-data.scores$plot <- hyper_data_weighted$plot
+plot_and_burn <- strsplit(hyper_data_weighted$plot, "_")#[[1]]
+
+data.scores$plot <- sapply(plot_and_burn, `[`, 1)
+data.scores$time_since_fire <- sapply(plot_and_burn, `[`, 2)
+#data.scores$sp_time <- paste(data.scores$sp,)
+data.scores <- data.scores %>%
+  mutate(sp_fire = paste0(sp, "_", time_since_fire))
 
 var_explained <- pcoa_result$values$Relative_eig[1:2] * 100  # First two axes
 xlab <- paste0("PCoA Axis 1 (", round(var_explained[1], 1), "%)")
 ylab <- paste0("PCoA Axis 2 (", round(var_explained[2], 1), "%)")
 
+
+shaded_colors <- c(
+  DOWO_1 = "gray20",  
+  DOWO_2 = "gray80",  
+
+  NOFL_1 = "#B8860B",  # dark yello
+  NOFL_2 = "#FFFFE0",  # light yellow
+
+  RHWO_1 = "#67000D",  # dark red
+  RHWO_2 = "#FB6A4A",  # light red
+
+  RBWO_1 = "#4A1486",  # dark purple
+  RBWO_2 = "#9E9AC8",  # light purple
+
+  RCWO_1 = "#08306B",  # dark violet
+  RCWO_2 = "#6BAED6",  # light violet-blue
+
+  PIWO_1 = "#006D2C",  # dark teal-green
+  PIWO_2 = "#A1D99B"   # light teal-green
+)
+
+
 pcoa_plot <- ggplot(data.scores, aes(x= Axis.1, y= Axis.2, col=sp)) + #denote groupings by color "col" and shape
-  geom_point(aes(size=plot)) +#adds points
+  geom_point(aes(size=time_since_fire)) +#adds points
   #geom_text(aes(label=rownames(data.scores)),hjust=0, vjust=0)+#adds island names
   #stat_ellipse() +#adds ellipses
   geom_convexhull(aes(fill = sp), alpha = 0.1)+ # for convex hull
@@ -503,9 +554,38 @@ pcoa_plot <- ggplot(data.scores, aes(x= Axis.1, y= Axis.2, col=sp)) + #denote gr
        x = xlab,
        y = ylab)
 
+
+hull_data <- data.scores %>%
+  group_by(sp_fire) %>%
+  slice(chull(Axis.1, Axis.2)) %>%
+  ungroup()
+
+# Plot
+pcoa_plot2 <- ggplot(data.scores, aes(x = Axis.1, y = Axis.2)) +
+  geom_polygon(
+    data = hull_data,
+    aes(x = Axis.1, y = Axis.2, group = sp_fire, fill = sp_fire),
+    alpha = 0.2,
+    color = "black"  # Optional: outline for MCP
+  ) +
+  geom_point(aes(color = sp_fire, size = as.factor(time_since_fire))) +
+  scale_color_manual(values = shaded_colors) +
+  scale_fill_manual(values = shaded_colors) +
+  theme_bw() +
+  xlim(-0.15, 0.15) +
+  ylim(-0.15, 0.15) +
+  facet_wrap(~ sp) +
+  labs(
+    title = "PCoA of Foraging Substrate",
+    x = xlab,
+    y = ylab,
+    color = "Species / Fire",
+    fill = "Species / Fire",
+    size = "Time Since Fire"
+  )
 ```
 
-Now let's see how this looks in multidimensional space. We use a principle coordinate analysis since we are dealing with categorical variables such as the percentage of time gleaning from live secondary branches compared to hawking. We are also interested in time since fire, but for now, we will plot by month.
+Now let's see how this looks in multidimensional space. We use a principle coordinate analysis since we are dealing with categorical variables such as the percentage of time gleaning from live secondary branches compared to hawking. We are also interested in time since fire (1 or more than 1 year (coded as 2)).
 
 ```{r}
 #| echo: false
@@ -514,7 +594,7 @@ Now let's see how this looks in multidimensional space. We use a principle coord
 #| label: Figure 3
 #| fig-cap: "Principle coordinate analysis (PCoA) on the substrate observations by species and plot"
 #| fig-alt: "PCoA plot"
-pcoa_plot
+pcoa_plot2
 ```
 
 And for foraging behavior...
@@ -527,9 +607,12 @@ And for foraging behavior...
 ##### getting hypervolumes #####
 
 
-hyper_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X16_time_spent_sec")
-colnames(hyper_df) <- c("species","plot","month","foraging_type","time")
-
+hyper_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X16_time_spent_sec",
+                                 "time_since_burn")
+colnames(hyper_df) <- c("species","plot","month","foraging_type","time",
+                        "time_since_fire")
+hyper_df$plot <- paste0(hyper_df$plot,"_",hyper_df$time_since_fire)
+hyper_df$time_since_fire <- NULL
 
 
 
@@ -598,23 +681,81 @@ pcoa_result <- ape::pcoa(gower_dist)
 data.scores <- as.data.frame(pcoa_result$vectors[, 1:2])
 #data.scores <- as.data.frame(pcoa_result$points)  #Using the scores function from vegan to extract 
 data.scores$sp <- hyper_data_weighted$species  #  create a column of ocean names, from the original data frame 
-data.scores$plot <- hyper_data_weighted$plot
+plot_and_burn <- strsplit(hyper_data_weighted$plot, "_")#[[1]]
+
+data.scores$plot <- sapply(plot_and_burn, `[`, 1)
+data.scores$time_since_fire <- sapply(plot_and_burn, `[`, 2)
+#data.scores$sp_time <- paste(data.scores$sp,)
+data.scores <- data.scores %>%
+  mutate(sp_fire = paste0(sp, "_", time_since_fire))
 
 var_explained <- pcoa_result$values$Relative_eig[1:2] * 100  # First two axes
 xlab <- paste0("PCoA Axis 1 (", round(var_explained[1], 1), "%)")
 ylab <- paste0("PCoA Axis 2 (", round(var_explained[2], 1), "%)")
 
-pcoa_plot_for <- ggplot(data.scores, aes(x= Axis.1, y= Axis.2, col=sp)) + #denote groupings by color "col" and shape
-  geom_point(aes(size=plot)) +#adds points
+
+shaded_colors <- c(
+  DOWO_1 = "gray20",  
+  DOWO_2 = "gray80",  
+
+  NOFL_1 = "#B8860B",  # dark yello
+  NOFL_2 = "#FFFFE0",  # light yellow
+
+  RHWO_1 = "#67000D",  # dark red
+  RHWO_2 = "#FB6A4A",  # light red
+
+  RBWO_1 = "#4A1486",  # dark purple
+  RBWO_2 = "#9E9AC8",  # light purple
+
+  RCWO_1 = "#08306B",  # dark violet
+  RCWO_2 = "#6BAED6",  # light violet-blue
+
+  PIWO_1 = "#006D2C",  # dark teal-green
+  PIWO_2 = "#A1D99B"   # light teal-green
+)
+
+
+pcoa_plot <- ggplot(data.scores, aes(x= Axis.1, y= Axis.2, col=sp)) + #denote groupings by color "col" and shape
+  geom_point(aes(size=time_since_fire)) +#adds points
   #geom_text(aes(label=rownames(data.scores)),hjust=0, vjust=0)+#adds island names
   #stat_ellipse() +#adds ellipses
-  geom_convexhull(aes(fill = sp), alpha = 0.1)+
+  geom_convexhull(aes(fill = sp), alpha = 0.1)+ # for convex hull
   theme_bw() +
 #  xlim(-1.5, 1.5)+
  # ylim(-1.5,1.5)+
-  labs(title = "Foraging Behavior PCoA Plot",
+    labs(title = "Substrate PCoA Plot",
        x = xlab,
        y = ylab)
+
+
+hull_data <- data.scores %>%
+  group_by(sp_fire) %>%
+  slice(chull(Axis.1, Axis.2)) %>%
+  ungroup()
+
+# Plot
+pcoa_plot_for <- ggplot(data.scores, aes(x = Axis.1, y = Axis.2)) +
+  geom_polygon(
+    data = hull_data,
+    aes(x = Axis.1, y = Axis.2, group = sp_fire, fill = sp_fire),
+    alpha = 0.2,
+    color = "black"  # Optional: outline for MCP
+  ) +
+  geom_point(aes(color = sp_fire, size = as.factor(time_since_fire))) +
+  scale_color_manual(values = shaded_colors) +
+  scale_fill_manual(values = shaded_colors) +
+  theme_bw() +
+  xlim(-0.35, 0.2) +
+  ylim(-0.35, 0.2) +
+  facet_wrap(~ sp) +
+  labs(
+    title = "PCoA of Foraging Behavior",
+    x = xlab,
+    y = ylab,
+    color = "Species / Fire",
+    fill = "Species / Fire",
+    size = "Time Since Fire"
+  )
 
 ```
 
