@@ -49,114 +49,125 @@ survey <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\o
 pc <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\point_count_data.csv")
 sites <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\point_count_id_site_crosswalk.csv")
 truncation_dist <- 200
-#edit data to have desired columns
-pc <- pc[pc$real_distance_m <= truncation_dist, ]
+
+
+# Filter and prepare data
 pc <- pc %>%
-  filter(!is.na(real_distance_m), real_distance_m <= truncation_dist) %>%
-  filter(!species %in% c("YBSA", "WODU")) %>%
-  #filter(!double_obs %in% "y") %>%
-  left_join(.,sites,by="point_id")
-pc <- pc %>%
-  # Convert date to Date format
+  filter(!is.na(real_distance_m)) %>%
+  filter(!species %in% c("YBSA", "WODU","BASP")) %>%
+  left_join(sites, by = "point_id") %>%
   mutate(date = mdy(date)) %>%
-  
-  # Create visit number per point_id based on date order
   group_by(point_id, date) %>%
-  mutate(visit_date = first(date)) %>%   # Ensures a single date per group
+  mutate(visit_date = first(date)) %>%
   ungroup() %>%
   arrange(point_id, visit_date) %>%
   group_by(point_id) %>%
   mutate(visit = dense_rank(visit_date)) %>%
-  
-  # Calculate max number of visits per point_id
-  mutate(repeats = (n_distinct(visit_date))) %>% #effort in hours
-
-  mutate(Effort = ((n_distinct(visit_date))*10)/60) %>% #effort in hours
   ungroup()
-pc$point_id <- as.numeric(as.factor(pc$point_id))  #had error running model, needed random effects to be numeric, not even factors...
-pc$site_name <- as.numeric(as.factor(pc$site_name))
 
-#if double observer occurred, keep just my records
+# Only keep primary observer’s double observer records
 do <- pc %>%
   filter(double_obs == "y", observer == "RTM")
 
 pc <- pc %>%
-  filter(double_obs == "")
+  filter(double_obs == "") %>%
+  bind_rows(do)
 
-pc <- rbind(pc,do)
+# Encode point_id as numeric
+pc$point_id <- as.numeric(pc$point_id)
+#pc$site_name <- as.numeric(as.factor(pc$site_name))
 
-#############################
-##### latent factor Distance sampling #####
-
-
-# needs number of bins to be 1 more than the number of replicates in third dimention of y
+# Define species, sites, and number of replicates
+species_list <- unique(pc$species)
+site_list <- unique(pc$point_id)
+n_species <- length(species_list)
+n_sites <- length(site_list)
 n_replicates <- pc %>%
-  group_by(point_id, date) %>%
-  summarize(n = n(), .groups = "drop") %>%
   group_by(point_id) %>%
-  summarize(n_visits = n()) %>%
+  summarize(n_visits = n_distinct(visit)) %>%
   pull(n_visits) %>%
   max()
 
-dist.breaks <- seq(0, truncation_dist, length.out = n_replicates + 1)
+# Initialize y array
+y_array <- array(0, dim = c(n_species, n_sites, n_replicates),
+                 dimnames = list(species = species_list, site = site_list, visit = 1:n_replicates))
 
-# Bin the distance data
-pc$dist_bin <- cut(pc$real_distance_m, breaks = dist.breaks, labels = FALSE, include.lowest = TRUE)
-
-#need coords for the model to run
-# Extract site coordinates
-coords_df <- pc %>%
-  group_by(point_id) %>%
-  summarize(x = first(x), y = first(y)) %>%
-  ungroup() %>%
-  arrange(point_id)
-
-coords_mat <- as.matrix(coords_df[, c("x", "y")])
-rownames(coords_mat) <- coords_df$point_id
-
-
-# Build the 3D y array
-site_list <- unique(pc$point_id)
-species_list <- unique(pc$species)
-
-# Initialize array: species x sites x bins
-y_array <- array(0, dim = c(length(species_list), length(site_list), n_replicates),
-                 dimnames = list(species = species_list, site = site_list, bin = 1:n_replicates))
-
-# Fill in counts
-for (s in species_list) {
-  for (p in site_list) {
-    for (b in 1:n_replicates) {
-      y_array[s, as.character(p), b] <- sum(pc$species == s & pc$point_id == p & pc$dist_bin == b)
+# Fill y array with counts per species/site/visit
+for (s in seq_along(species_list)) {
+  species_name <- species_list[s]
+  for (p in seq_along(site_list)) {
+    site_id <- site_list[p]
+    for (v in 1:n_replicates) {
+      y_array[s, p, v] <- pc %>%
+        filter(species == species_name, point_id == site_id, visit == v) %>%
+        nrow()
     }
   }
 }
 
-# covs
-covs <- pc %>%
-  group_by(point_id, site_name) %>%
-  summarize(wind = mean(wind, na.rm = TRUE),
-            sky = mean(sky, na.rm = TRUE)) %>%
-  ungroup()
 
-covs$site <- as.character(covs$point_id)
-rownames(covs) <- covs$site
 
-# Abundance: differences between sites (random intercepts by site)
-abund_formula <- ~  1 + (1 | point_id)
+# Create detection covariates for each point_id × visit
 
-# Detection: wind and sky with random intercepts (or slopes) by site if needed
-det_formula <- ~ wind + sky 
+det_covs <- pc %>%
+  group_by(point_id, visit) %>%
+  summarize(wind = first(wind),
+            sky = first(sky),
+            observer = first(observer), 
+            .groups = "drop") %>%
+  arrange(point_id, visit)
 
-data_list <- list(
-  y = y_array,
-  covs = covs,
-  dist.breaks = dist.breaks,
-  offset = rep(pi * 200^2, length(site_list)),
-  coords = coords_mat
+det_covs_matrix <- det_covs %>%
+  pivot_wider(names_from = visit, values_from = c(wind, sky, observer)) %>%
+  arrange(point_id)
+
+wind_mat <- det_covs_matrix %>%
+  select(starts_with("wind_")) %>%
+  as.matrix()
+wind_mat[is.na(wind_mat)] <- 0
+
+sky_mat <- det_covs_matrix %>%
+  select(starts_with("sky_")) %>%
+  as.matrix()
+sky_mat[is.na(sky_mat)] <- 0
+
+observer_mat <- det_covs_matrix %>%
+  select(starts_with("observer_")) %>%
+  as.data.frame()
+# as.matrix()
+#observer_mat <- apply(observer_mat, 2, function(x) as.numeric(as.factor(x)))
+observer_mat[is.na(observer_mat)] <- "RTM"
+
+det_covs_list <- list(
+  wind = wind_mat,
+  sky = sky_mat,
+  observer = observer_mat
 )
 
+site_covs <- pc %>%
+  select(point_id, site_name) %>%
+  distinct() %>%
+  arrange(point_id)
 
+site_covs <- site_covs %>%
+  filter(point_id %in% site_list) %>%
+  arrange(factor(point_id, levels = site_list))
+
+site_covs <- site_covs %>%
+  select(site_name)
+
+# Abundance and detection formulas
+abund_formula <- ~ site_name 
+det_formula <- ~ wind + sky + observer
+
+# Package data for spAbundance
+data_list <- list(
+  y = y_array,
+  det.covs = det_covs_list,
+  abund.covs = site_covs
+)
+
+# Priors and tuning can be kept the same
 priors <- list(
   beta.comm.normal = list(0, 100),
   alpha.comm.normal = list(0, 100),
@@ -166,75 +177,62 @@ priors <- list(
   sigma.sq.p.ig = list(0.1, 0.1)
 )
 
-inits <- list()
-
-#pca of each globe plot (morph, function, phylo?) look into proportion transformation for pca
-
-out <- lfMsDS(
+# Fit the N-mixture model
+out_nmix <- msNMix(
   abund.formula = abund_formula,
   det.formula = det_formula,
   data = data_list,
-  inits = inits,
   priors = priors,
   tuning = list(
     beta = 0.1,
-    alpha = 0.1,
-    beta.star = 0.1,   #required because of random effects in abundance
-    alpha.star = 0.1,  #required because of random effects in detection
-    w = 0.1,           #latent factor scores (site-level effects)
-    lambda = 0.1       #latent factor loadings (species-level effects)
+    alpha = 0.1
   ),
-  n.factors = 3,
-  n.batch = 500,
-  batch.length = 25,
+  inits = list(),
+  n.batch = 1000,  #2000 can do more but similar results
+  batch.length = 10,
   accept.rate = 0.43,
   family = "Poisson",
-  transect = "point",
-  det.func = "halfnormal",
   n.omp.threads = 1,
   verbose = TRUE,
   n.report = 50,
-  n.burn = round(0.1 * 500 * 25),
-  n.thin = 1,
-  n.chains = 1
+  n.burn = 200,
+  n.thin = 2,
+  n.chains = 1 # can do 2 but similar results
 )
+
+globalmod <- (out_nmix)
 
 # Extract the summary output
 
-# Rearrange dimensions to [site, species, sample]
-N_array <- aperm(out$N.samples, c(3, 2, 1))  # [32, 13, 11250]
-
-# Step 2: Summarize posterior for each site × species
-summary_list <- apply(N_array, c(1, 2), function(x) {
-  c(mean = mean(x),
-    lower = quantile(x, 0.025),
-    upper = quantile(x, 0.975))
-})
-# Step 3: Reshape the summary into long format
-# summary_list is now 3 x 32 x 13 → transpose appropriately
-summary_df <- as.data.frame.table(summary_list)
-colnames(summary_df) <- c("stat", "site_index", "species", "value")
-
-# Replace species labels with actual species names
-summary_df$species <- factor(summary_df$species, 
-                             levels = LETTERS[1:length(out$sp.names)],
-                             labels = out$sp.names)
+fit_vals <- fitted(out_nmix, type = "marginal")
 
 
-# Pivot wider: one row per site × species with mean, lower, upper
-summary_wide <- summary_df %>%
-  pivot_wider(names_from = stat, values_from = value) %>%
-  mutate(site_index = as.integer(site_index))
 
-# Step 4: Add site info (ensure order matches input)
-site_info <- pc %>%
-  select(point_id, site_abb, site_name) %>%
-  distinct() %>%
-  mutate(site_index = row_number())
+# Step 1: Sum over visits (4th dim) → iterations × species × site
+total_abundance <- apply(fit_vals$y.rep.samples, c(1, 2, 3), sum)
 
-plot_df <- left_join(summary_wide, site_info, by = "site_index")
-colnames(plot_df) <- c("site_index","species","mean","lower","upper","point_id","site_abb","site_name")
-# Plot
+# Step 2: Summarize over iterations for each species × site
+n_iter <- dim(total_abundance)[1]
+n_species <- dim(total_abundance)[2]
+n_sites <- dim(total_abundance)[3]
+
+summary_list <- vector("list", length = n_species * n_sites)
+k <- 1
+for (s in 1:n_species) {
+  for (p in 1:n_sites) {
+    values <- total_abundance[, s, p]
+    summary_list[[k]] <- data.frame(
+      species = species_list[s],
+      point_id = site_list[p],
+      mean = mean(values),
+      lower = quantile(values, 0.025),
+      upper = quantile(values, 0.975)
+    )
+    k <- k + 1
+  }
+}
+
+df_plot <- do.call(rbind, summary_list)
 
 
 
@@ -252,23 +250,24 @@ colnames(plot_df) <- c("site_index","species","mean","lower","upper","point_id",
 #plotting
 
 
-ggplot(plot_df, aes(x = factor(point_id), y = mean, fill = species)) +
+ggplot(df_plot, aes(x = factor(point_id), y = mean, fill = species)) +
   geom_bar(stat = "identity", position = "dodge") +
   geom_errorbar(aes(ymin = lower, ymax = upper),
                 position = position_dodge(width = 0.9),
                 width = 0.3) +
-  facet_wrap(~ species, scales = "free_y") +
+  facet_wrap(~ species) +
   theme_bw() +
-      theme(
-      axis.title = element_blank(),  # removes x and y axis titles
-      legend.position = "none"  # Hide legends from individual plots
-    ) +    
+  theme(
+    axis.title = element_blank(),  # removes x and y axis titles
+    legend.position = "none"  # Hide legends from individual plots
+  ) +    
   geom_vline(xintercept = 7.5, linetype="dotted", 
-                color = "black", linewidth=1.5)+
+             color = "black", linewidth=1.5)+
   geom_vline(xintercept = 14.5, linetype="dotted", 
-                color = "black", linewidth=1.5)+
+             color = "black", linewidth=1.5)+
   geom_vline(xintercept = 23.5, linetype="dotted", 
-                color = "black", linewidth=1.5)+
+             color = "black", linewidth=1.5)+
+  ylim(0,30)+
   scale_y_continuous(expand=c(0, 0))+ 
   labs(x = "Point ID", y = "Estimated Abundance", fill = "Species") +
   theme(axis.text.x = element_text(angle = 90))
