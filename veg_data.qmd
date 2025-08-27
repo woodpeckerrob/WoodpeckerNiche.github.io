@@ -103,9 +103,14 @@ tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "06_11_2025_Setup2", ]
 tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "05_02_2025_Setup10", ]
 tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "06_25_2025_Setup33", ]
 tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "07_07_2025_Setup42", ]
+tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "07_22_2025_Setup3", ]
+tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "07_22_2025_Setup4", ]
+
 
 
 tls_hab_data <- tls_hab_data[!tls_hab_data$date %in% "2025-07-01", ]
+tls_hab_data <- tls_hab_data[!tls_hab_data$date %in% "2025-07-14", ]
+tls_hab_data <- tls_hab_data[!tls_hab_data$date %in% "2025-07-15", ]
 
 
 
@@ -118,8 +123,8 @@ tls_meta_data <- tls_meta_data[tls_meta_data$date %in% tls_hab_data$date, ]
 udays <- unique(tls_hab_data$date)
 tls_data <- data.frame()
 for(i in 1:length(udays)){
-  temp_hab <- subset(tls_hab_data,tls_hab_data$date==udays[i])
-  temp_meta <- subset(tls_meta_data,tls_meta_data$date==udays[i])
+  temp_hab <- subset(tls_hab_data,tls_hab_data$date==udays[i])      # processed scan
+  temp_meta <- subset(tls_meta_data,tls_meta_data$date==udays[i])   # epicollect form
   if(nrow(temp_hab)==nrow(temp_meta)){
     temp_combo <- cbind(temp_hab,temp_meta)
   }else{
@@ -173,7 +178,8 @@ snag_coords <- geosphere::destPoint(
 # Add calculated lat/lon to original data
 s.dat$snag_lon <- snag_coords[, 1]
 s.dat$snag_lat <- snag_coords[, 2]
-
+s.dat$true_long <- snag_coords[, 1] #doing this so it's retained in snag_sf
+s.dat$true_lat <- snag_coords[, 2]
 snag_sf <- st_as_sf(s.dat, coords = c("snag_lon", "snag_lat"), crs = 4326)
 
 snag_sf <- st_transform(snag_sf, crs = st_crs(plots))
@@ -265,19 +271,21 @@ for(i in 1:nrow(tls_with_plots)){
     tls_with_plots$max_canopy_height_m[i] <- 0
   }
 }
+tls_with_plots$max_canopy_height_m[is.infinite(tls_with_plots$max_canopy_height_m)] <- 0
+
 tls_with_plots$max_canopy_height_m <- as.numeric(tls_with_plots$max_canopy_height_m)
 
 
 
 hab_sum_df <- tls_with_plots %>%
   group_by(Plot_ID) %>%
-  summarize(cover_mean = mean(percent_vertical_cover),
-            tree_mean = mean(num_trees),
-            understory_percent_mean=mean(understory_percent),
-            midstory_percent_mean=mean(midstory_percent),
-            overstory_percent_mean=mean(overstory_percent),
-            BA_mean=mean(basal_area_m),
-            max_canopy_height_mean=mean(max_canopy_height_m),
+  summarize(cover_mean = mean(percent_vertical_cover,na.rm=T),
+            tree_mean = mean(num_trees,na.rm=T),
+            understory_percent_mean=mean(understory_percent,na.rm=T),
+            midstory_percent_mean=mean(midstory_percent,na.rm=T),
+            overstory_percent_mean=mean(overstory_percent,na.rm=T),
+            BA_mean=mean(basal_area_m,na.rm=T),
+            max_canopy_height_mean=mean(max_canopy_height_m,na.rm=T),
             pine_percent=(sum(X4_num_pines_within_1)/(sum(X4_num_pines_within_1)+sum(X5_num_hardwood_withi)))*100
             )
 hab_sum_df <- hab_sum_df %>%
