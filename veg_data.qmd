@@ -410,7 +410,7 @@ print(kable(snag_count_by_plot, caption = paste("Number of snags per plot.")))
 ```
 
 
-We also want to know something about the diversity of these snags that are in each plot. Are all snags created equal? as mentioned before, probably not, we derive a diversity metric from all the snag's qualities within a plot. How big is it, how decayed is it, is it a pine or hardwood, and use these to get a Gower distance for the plots.
+We also want to know something about the diversity of these snags that are in each plot. Are all snags created equal? As mentioned before, probably not. We derive a diversity metric from all the snag's qualities within a plot. How big is it, how decayed (old) is it, is it a pine or hardwood, and use these to get a Gower distance for the plots.
 
 
 ```{r}
@@ -455,7 +455,159 @@ diversity_by_plot <- snags_with_plot_clean %>%
   ungroup()
 
 
+#plotting species richness by
+# load each raw data file
+survey <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\order_of_point_count_surveys.csv")
+pc <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\point_count_data.csv")
+sites <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\point_count_id_site_crosswalk.csv")
+truncation_dist <- 200
+
+
+# Filter and prepare data
+pc <- pc %>%
+  filter(!is.na(real_distance_m)) %>%
+  filter(!species %in% c("YBSA", "WODU","BASP")) %>%
+  left_join(sites, by = "point_id") %>%
+  mutate(date = mdy(date)) %>%
+  group_by(point_id, date) %>%
+  mutate(visit_date = first(date)) %>%
+  ungroup() %>%
+  arrange(point_id, visit_date) %>%
+  group_by(point_id) %>%
+  mutate(visit = dense_rank(visit_date)) %>%
+  ungroup()
+
+# Only keep primary observer’s double observer records
+do <- pc %>%
+  filter(double_obs == "y", observer == "RTM")
+
+pc <- pc %>%
+  filter(double_obs == "") %>%
+  bind_rows(do)
+
+
+
+#install.packages("betapart")
+
+### alpha diversity 
+
+# Load libraries
+library(dplyr)
+library(tidyr)
+library(vegan)
+library(betapart)
+
+# Step 1: Assign sites
+pc <- pc %>%
+  mutate(site = case_when(
+    point_id %in% 1:7 ~ "Arcadia",
+    point_id %in% 8:14 ~ "Greenwood",
+    point_id %in% 15:23 ~ "Livingston Place",
+    point_id %in% 24:32 ~ "Tall Timbers"
+  ))
+
+# Step 2: Alpha diversity
+alpha_div <- pc %>%
+  group_by(point_id) %>%
+  summarise(alpha = n_distinct(species), .groups = "drop")
+
+# Step 3: Community matrix (wide format)
+comm_matrix <- pc %>%
+  distinct(point_id, site, species) %>%
+  mutate(presence = 1) %>%
+  pivot_wider(names_from = species, values_from = presence, values_fill = 0)
+
+# Separate metadata and community data
+meta <- comm_matrix %>% select(point_id, site)
+comm_data <- comm_matrix %>% select(-point_id, -site)
+
+# Step 4: Sørensen dissimilarity
+beta_res <- beta.pair(comm_data, index.family = "sorensen")
+sor_matrix <- as.matrix(beta_res$beta.sor)
+
+# Step 5: Calculate mean Sørensen dissimilarity *within site* for each plot
+# Combine dissimilarity matrix with site info
+rownames(sor_matrix) <- colnames(sor_matrix) <- meta$point_id
+
+# Function to get mean Sørensen distance per plot within same site
+get_mean_within_site_dissimilarity <- function(site_id) {
+  plots_in_site <- meta %>% filter(site == site_id) %>% pull(point_id)
+  mat <- sor_matrix[as.character(plots_in_site), as.character(plots_in_site)]
+  diag(mat) <- NA  # exclude self-comparisons
+  rowMeans(mat, na.rm = TRUE)
+}
+
+# Apply across sites
+beta_df <- bind_rows(lapply(unique(meta$site), function(site_id) {
+  tibble(
+    point_id = as.numeric(names(get_mean_within_site_dissimilarity(site_id))),
+    beta = get_mean_within_site_dissimilarity(site_id)
+  )
+}))
+
+# Step 6: Combine all pieces
+final_df <- meta %>%
+  left_join(alpha_div, by = "point_id") %>%
+  left_join(beta_df, by = "point_id") %>%
+  left_join(diversity_by_plot, by = c("point_id" = "Plot_ID"))
+
+# View final output
+beta_all_sites <- rowMeans(sor_matrix %>% replace(diag(.), NA), na.rm = TRUE)
+
+# Turn into tibble
+beta_all_sites_df <- tibble(
+  point_id = as.integer(names(beta_all_sites)),
+  beta_all_sites = beta_all_sites
+)
+
+# Add to final_df
+final_df <- final_df %>%
+  left_join(beta_all_sites_df, by = "point_id")
+colnames(final_df) <- c("point_id","site","alpha","site_beta","snag_diversity","global_beta")
+snag_result_df <- final_df
+snag_result_df[is.na(snag_result_df)] <- 0
+
+#
+library(ggplot2)
+library(cowplot)
+
+# Individual plots
+p1 <- ggplot(snag_result_df, aes(x = snag_diversity, y = alpha,color=site)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue", se = FALSE) +
+  labs(title = "A", x = "", y = "Species richness")+
+  scale_y_continuous(breaks = seq(8, 15, by = 1), limits = c(8, 15)) +
+  theme_bw()
+
+
+p2 <- ggplot(snag_result_df, aes(x = snag_diversity, y = site_beta)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "darkgreen", se = FALSE) +
+  labs(title = "B", x = "", y = "Site Beta diversity")
+
+p3 <- ggplot(snag_result_df, aes(x = snag_diversity, y = global_beta, color = site)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "darkred", se = FALSE) +
+  labs(title = "B", x = "Snag Diversity", y = "Beta diversity")+
+  scale_y_continuous(breaks = seq(0, 0.25, by = .05), limits = c(0, .25)) +
+  theme_bw()+
+  theme(legend.position = "none")
+
+# Combine plots using cowplot
+final_plot2 <- plot_grid(p1, p3, ncol = 1, align = "v")
+
+# 
 ```
 
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: Figure 3
+#| fig-cap: "Snag diversity among plots given the number of unique cavity-nesting birds seen at a plot (richness, A) and the proportion of shared species between plot (0 = all species are shared, 1 = no species in common (AKA species turnover, B)."
+#| fig-alt: "Snag Diversity plots"
+final_plot2
+```
 
+It appears that the diversity of snags does not correlate strongly to the number of species (Fig 3A) nor to the species shared between plots (Fig 3B). This makes some sense if particular snags are more useful as opposed to others. Imagine a tree that is not far along in its decay next to another snag that has decayed for much longer. The firsttree is likely thicker, with soft rotten wood (good cavity substrate) while the well-decayed snag is likely short, contains no rotten wood and only a dense heartwood. I expect that the diversity of snags doesn't reflect the number or variety of species at a plot, because only a particular kind of snag matters. The snags that make for good nesting substrates. 
 

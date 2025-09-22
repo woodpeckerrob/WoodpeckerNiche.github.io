@@ -35,6 +35,7 @@ Woodpecker observation data collected thus far. Data is arranged by plot, specie
 funk <- function(x){length(unique(x))}
 
 ```
+
 ```{r}
 #| echo: false
 #| include: false
@@ -749,7 +750,7 @@ pcoa_plot_for <- ggplot(data.scores, aes(x = Axis.1, y = Axis.2)) +
   ylim(-0.35, 0.2) +
   facet_wrap(~ sp) +
   labs(
-    title = "PCoA of Foraging Behavior",
+    title = "PCoA of Foraging Mode",
     x = xlab,
     y = ylab,
     color = "Species / Fire",
