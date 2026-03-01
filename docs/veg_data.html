@@ -198,45 +198,12 @@ Table: Habitat variables for each site.
 <p>Here, we describe the quality and quantity of these snag resources. There are many ways to quantify a dead tree including decay class, diameter at breast height (DBH), amount of dead wood, amount of bark, and species. This diversity of snag characteristics within a plot my lead to more diversity within the plot. Thus, I will reduce this dimensionality in the data using multivariate statistics. This will result in a one or two metrics that can be used for further analysis.</p>
 <p>We have sampled most of all plots for the presence of dead trees. On average, there are 23.25 snags per plot (range: 0 - 54) for a total of 744 snags recorded across all plots.</p>
 <div class="cell">
-<div class="cell-output cell-output-stdout">
-<pre><code>
-
-Table: Number of snags per plot.
-
-| Plot_ID| num_snags|
-|-------:|---------:|
-|       1|         9|
-|       2|        31|
-|       3|        24|
-|       4|         0|
-|       5|        29|
-|       6|        34|
-|       7|        41|
-|       8|        27|
-|       9|        25|
-|      10|        22|
-|      11|        37|
-|      12|        28|
-|      13|        34|
-|      14|        26|
-|      15|        12|
-|      16|        30|
-|      17|         0|
-|      18|        10|
-|      19|         2|
-|      20|         3|
-|      21|        20|
-|      22|        15|
-|      23|        14|
-|      24|        22|
-|      25|        32|
-|      26|        30|
-|      27|        13|
-|      28|        36|
-|      29|        27|
-|      30|        36|
-|      31|        54|
-|      32|        21|</code></pre>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="veg_data_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
 </div>
 </div>
 <p>We also want to know something about the diversity of these snags that are in each plot. Are all snags created equal? As mentioned before, probably not. We derive a diversity metric from all the snag’s qualities within a plot. How big is it, how decayed (old) is it, is it a pine or hardwood, and use these to get a Gower distance for the plots.</p>

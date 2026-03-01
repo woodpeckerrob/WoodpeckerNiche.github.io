@@ -421,10 +421,37 @@ We have sampled most of all plots for the presence of dead trees. On average, th
 ```{r}
 #| echo: false
 #| message: false
+#| include: false
+
+#making a snag plot
+snag_df <- snags_with_plot %>%
+  st_drop_geometry()
+  
+snag_plot <- ggplot(snag_df, aes(x = factor(Plot_ID), fill = factor(decay))) +
+  geom_bar() +
+  geom_vline(xintercept = c(7.5, 14.5, 23.5),
+             linetype = "dashed",
+             linewidth = 0.8) +
+  labs(
+    x = "Plot ID",
+    y = "Number of Snags",
+    fill = "Decay Class"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+```
+
+
+```{r}
+#| echo: false
+#| message: false
 
 #print snag table
-print(kable(snag_count_by_plot, caption = paste("Number of snags per plot.")))
-
+#print(kable(snag_count_by_plot, caption = paste("Number of snags per plot.")))
+snag_plot
 
 ```
 
