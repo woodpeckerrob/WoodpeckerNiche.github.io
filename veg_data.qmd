@@ -293,6 +293,25 @@ hab_sum_df <- hab_sum_df %>%
   arrange(Plot_ID)
 hab_sum_df[is.na(hab_sum_df)] <- 0 
 
+# add tree density /m2 
+hab_sum_df$mean_tree_density <- hab_sum_df$tree_mean/(pi*(12/2)^2) #radius of scan is 12m
+
+
+# merge it with the crosswalk and just report summary stats for the different areas.
+crosswalk <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\point_count_id_site_crosswalk.csv")
+crosswalk <- rename(crosswalk, Plot_ID = point_id)
+
+hab_summary <- hab_sum_df %>%
+  left_join(crosswalk,by="Plot_ID") %>%
+  group_by(site_abb) %>%
+  summarise(
+    mean_tree_density = mean(mean_tree_density, na.rm = TRUE),
+    BA_mean = mean(BA_mean, na.rm = TRUE),
+    max_canopy_height = mean(max_canopy_height_mean, na.rm = TRUE),
+    pine_percent = mean(pine_percent, na.rm = TRUE)
+  )
+
+
 ```
 
 ```{r}
@@ -300,7 +319,7 @@ hab_sum_df[is.na(hab_sum_df)] <- 0
 #| message: false
 
 #print snag table
-print(kable(hab_sum_df, caption = paste("Habitat variables for each plot.")))
+print(kable(hab_summary[,1:5], caption = paste("Habitat variables for each site.")))
 
 
 ```
