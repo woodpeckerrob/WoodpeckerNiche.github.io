@@ -28,6 +28,7 @@ Avian communities are often sampled with point count surveys, and for good reaso
   #library(unmarked)
   library(lubridate)
   library(abind)
+  library(suncalc)
 
 }
 
@@ -50,7 +51,6 @@ pc <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\
 sites <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\point_count_id_site_crosswalk.csv")
 truncation_dist <- 200
 
-
 # Filter and prepare data
 pc <- pc %>%
   filter(!is.na(real_distance_m)) %>%
@@ -72,6 +72,26 @@ do <- pc %>%
 pc <- pc %>%
   filter(double_obs == "") %>%
   bind_rows(do)
+
+# add time since dawn
+pc <- pc %>%
+  mutate(datetime = ymd_hm(paste(pc$date, pc$start), tz = "America/New_York"))
+sun <- getSunlightTimes(
+  date = unique(pc$date),
+  lat = 30.6,
+  lon = -84.1,
+  keep = "sunrise",
+  tz = "America/New_York"
+)
+pc <- pc %>%
+  left_join(sun, by = "date")
+pc <- pc %>%
+  mutate(time_since_sunrise =
+           as.numeric(difftime(datetime, sunrise, units = "mins")))
+
+#remove EM, does this improve estimates?
+#pc <- pc %>%
+#  filter(observer == "RTM")
 
 # Encode point_id as numeric
 pc$point_id <- as.numeric(pc$point_id)
@@ -114,11 +134,12 @@ det_covs <- pc %>%
   summarize(wind = first(wind),
             sky = first(sky),
             observer = first(observer), 
+            time_since_sunrise = first(time_since_sunrise),
             .groups = "drop") %>%
   arrange(point_id, visit)
 
 det_covs_matrix <- det_covs %>%
-  pivot_wider(names_from = visit, values_from = c(wind, sky, observer)) %>%
+  pivot_wider(names_from = visit, values_from = c(wind, sky, observer,time_since_sunrise)) %>%
   arrange(point_id)
 
 wind_mat <- det_covs_matrix %>%
@@ -138,10 +159,16 @@ observer_mat <- det_covs_matrix %>%
 #observer_mat <- apply(observer_mat, 2, function(x) as.numeric(as.factor(x)))
 observer_mat[is.na(observer_mat)] <- "RTM"
 
+sun_mat <- det_covs_matrix %>%
+  select(starts_with("time_")) %>%
+  as.matrix()
+sun_mat[is.na(sun_mat)] <- 0
+
 det_covs_list <- list(
   wind = wind_mat,
   sky = sky_mat,
-  observer = observer_mat
+  observer = observer_mat,
+  time_since_dawn = sun_mat
 )
 
 site_covs <- pc %>%
@@ -158,7 +185,7 @@ site_covs <- site_covs %>%
 
 # Abundance and detection formulas
 abund_formula <- ~ site_name 
-det_formula <- ~ wind + sky + observer
+det_formula <- ~ wind + sky + observer #+ time_since_dawn  # this made some species get way overestimated
 
 # Package data for spAbundance
 data_list <- list(
