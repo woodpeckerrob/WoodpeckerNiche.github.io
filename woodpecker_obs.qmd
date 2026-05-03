@@ -132,6 +132,18 @@ ordered_columns <- c("year","month", "X8_Species", sort(as.numeric( grep("^\\d+$
 pivoted_data <- pivoted_data %>% select(all_of(ordered_columns))
 colnames(pivoted_data) <- c("year","month","Species",1:32)
 
+
+#make colors for the plots so they match somewhat
+shaded_colors <- c(
+  DOWO = "gray50",  
+  NOFL = "#FFFFE0",  # dark yellow
+  RHWO = "#FB6A4A",  # dark red
+  RBWO = "#9E9AC8",  # dark purple
+  RCWO = "#6BAED6",  # dark violet
+  PIWO = "#A1D99B"  # dark teal-green
+)
+
+
 ```
 
 ```{r}
@@ -174,7 +186,7 @@ sp_comp_plot_current_year <- ggplot(tab_pct, aes(x = Plot, y = Percent, fill = S
   geom_bar(stat = "identity") +
   geom_text(data = plot_totals, aes(x = Plot, y = 102, label = TotalCount),
             inherit.aes = FALSE, size = 3, vjust = 0) +
-  scale_fill_brewer(palette = "Paired") +
+  scale_fill_manual(values = shaded_colors)+
   labs(
     title = "Woodpecker Composition by Plot (2026 only)",
     subtitle = "Total count shown above each bar",
@@ -231,7 +243,7 @@ sp_comp_plot <- ggplot(tab_pct, aes(x = Plot, y = Percent, fill = Species)) +
   geom_bar(stat = "identity") +
   geom_text(data = plot_totals, aes(x = Plot, y = 102, label = TotalCount),
             inherit.aes = FALSE, size = 3, vjust = 0) +
-  scale_fill_brewer(palette = "Paired") +
+  scale_fill_manual(values = shaded_colors)+
   labs(
     title = "Woodpecker Composition by Plot (All Years and Months Combined)",
     subtitle = "Total count shown above each bar",
@@ -252,6 +264,7 @@ pivoted_summary <- pivoted_data %>%
 # Plot using ggplot2
 hist<-ggplot(pivoted_summary, aes(x = factor(month), y = Total, fill = Species)) +
   geom_col(position = "stack") +
+  scale_fill_manual(values = shaded_colors)+
   labs(x = "Month", y = "Total Observations", title = "Species Observations by Month for Both Years") +
   scale_y_continuous(expand=c(0, 0))+ 
   theme_bw()
@@ -287,6 +300,25 @@ sp_comp_plot
 #| fig-alt: "Species totals by month histogram"
 hist
 ```
+
+
+
+
+```{r}
+#| echo: false
+#| message: false
+#organize table for this next part
+# Summarize the data by month, species, and plot
+summary_table <- df %>%
+  group_by(month, X8_Species, X3_Plot_number) %>%
+  summarise(count = n(), .groups = 'drop')
+
+# Pivot the data into a wide format: each plot is a column, and each species is a row
+pivoted_data <- summary_table %>%
+  pivot_wider(names_from = X3_Plot_number, values_from = count, values_fill = list(count = 0))
+
+```
+
 
 # March Observations
 
