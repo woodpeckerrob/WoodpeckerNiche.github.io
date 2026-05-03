@@ -266,8 +266,6 @@ df_plot <- do.call(rbind, summary_list)
 
 ```
 
-
-
 ## Summary plots for results thus far...
 
 ```{r}
@@ -303,8 +301,6 @@ ggplot(df_plot, aes(x = factor(point_id), y = mean, fill = species)) +
 ```
 
 This plot (above) shows the abundance estimates for cavity nesting species at each study site (separated by vertical dashed lines). This data represents only March and April 2025 since that's what we have entered into excel thus far. Species estimates are shown with their corresponding 95% credible intervals.
-
-
 
 # How long should a point count be?
 

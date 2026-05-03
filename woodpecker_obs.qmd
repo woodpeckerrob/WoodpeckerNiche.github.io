@@ -74,6 +74,7 @@ df <- df|>
   filter(X9_Is_it_a_juvenile !="Yes")
 df$X6_date <- as.Date(df$X6_date, format = "%m/%d/%Y")
 df$month <- as.numeric(format(df$X6_date, "%m"))
+df$year <- as.numeric(format(df$X6_date, "%Y"))
 df$X3_Plot_number <- as.numeric(df$X3_Plot_number)
 
 #fix hawking and ground so it's consistent and there's no tree info
@@ -106,7 +107,7 @@ for(i in 1:nrow(df)){
 
 # Summarize the data by month, species, and plot
 summary_table <- df %>%
-  group_by(month, X8_Species, X3_Plot_number) %>%
+  group_by(year,month, X8_Species, X3_Plot_number) %>%
   summarise(count = n(), .groups = 'drop')
 
 # Pivot the data into a wide format: each plot is a column, and each species is a row
@@ -127,22 +128,78 @@ missing_columns <- setdiff(expected_columns, current_columns)
 for (col in missing_columns) {
   pivoted_data[[col]] <- 0
 }
-ordered_columns <- c("month", "X8_Species", sort(as.numeric( grep("^\\d+$", names(pivoted_data), value = TRUE))))  # Sort plot columns numerically
+ordered_columns <- c("year","month", "X8_Species", sort(as.numeric( grep("^\\d+$", names(pivoted_data), value = TRUE))))  # Sort plot columns numerically
 pivoted_data <- pivoted_data %>% select(all_of(ordered_columns))
-colnames(pivoted_data) <- c("month","Species",1:32)
+colnames(pivoted_data) <- c("year","month","Species",1:32)
 
 ```
-
 
 ```{r}
 #| echo: false
 #| message: false
 #| include: false
 
-# Plotting species composition by plot thus far
+# Plotting species composition by plot thus far for current year 2026
+
+# Step 1: Combine across months and years
+tab_combined <- pivoted_data %>%
+  filter(year == 2026) %>%
+  group_by(Species) %>%
+  summarise(across(`1`:`32`, \(x) sum(x, na.rm = TRUE)))
+
+# Step 2: Reshape to long format
+tab_long <- tab_combined %>%
+  pivot_longer(
+    cols = -Species,
+    names_to = "Plot",
+    values_to = "Count"
+  )
+
+# Step 3: Convert Plot to factor
+tab_long$Plot <- factor(tab_long$Plot, levels = as.character(1:32))
+
+# Step 4: Calculate percentages and totals
+tab_pct <- tab_long %>%
+  group_by(Plot) %>%
+  mutate(Percent = Count / sum(Count, na.rm = TRUE) * 100) %>%
+  ungroup()
+
+# Step 5: Get total counts per plot for labels
+plot_totals <- tab_long %>%
+  group_by(Plot) %>%
+  summarise(TotalCount = sum(Count, na.rm = TRUE))
+
+# Step 6: Plot with total count labels
+sp_comp_plot_current_year <- ggplot(tab_pct, aes(x = Plot, y = Percent, fill = Species)) +
+  geom_bar(stat = "identity") +
+  geom_text(data = plot_totals, aes(x = Plot, y = 102, label = TotalCount),
+            inherit.aes = FALSE, size = 3, vjust = 0) +
+  scale_fill_brewer(palette = "Paired") +
+  labs(
+    title = "Woodpecker Composition by Plot (2026 only)",
+    subtitle = "Total count shown above each bar",
+    x = "Plot",
+    y = "Percentage of Observations"
+  ) +
+  coord_cartesian(ylim = c(0, 110)) +  # Give space above 100% for the labels
+  scale_y_continuous(expand=c(0, 0))+ 
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 
 
-# Step 1: Combine across months
+
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| include: false
+
+# Plotting species composition by plot thus far for BOTH years
+
+
+# Step 1: Combine across months and years
 tab_combined <- pivoted_data %>%
   group_by(Species) %>%
   summarise(across(`1`:`32`, \(x) sum(x, na.rm = TRUE)))
@@ -176,7 +233,7 @@ sp_comp_plot <- ggplot(tab_pct, aes(x = Plot, y = Percent, fill = Species)) +
             inherit.aes = FALSE, size = 3, vjust = 0) +
   scale_fill_brewer(palette = "Paired") +
   labs(
-    title = "Woodpecker Composition by Plot (All Months Combined)",
+    title = "Woodpecker Composition by Plot (All Years and Months Combined)",
     subtitle = "Total count shown above each bar",
     x = "Plot",
     y = "Percentage of Observations"
@@ -195,7 +252,7 @@ pivoted_summary <- pivoted_data %>%
 # Plot using ggplot2
 hist<-ggplot(pivoted_summary, aes(x = factor(month), y = Total, fill = Species)) +
   geom_col(position = "stack") +
-  labs(x = "Month", y = "Total Observations", title = "Species Observations by Month") +
+  labs(x = "Month", y = "Total Observations", title = "Species Observations by Month for Both Years") +
   scale_y_continuous(expand=c(0, 0))+ 
   theme_bw()
 ```
@@ -205,7 +262,18 @@ hist<-ggplot(pivoted_summary, aes(x = factor(month), y = Total, fill = Species))
 #| message: false
 #| warning: false
 #| label: Figure 1
-#| fig-cap: "Observations by species. numbers above the bar indicates the number of observations for each species."
+#| fig-cap: "Observations by species for 2026. Numbers above the bar indicates the number of observations for each species."
+#| fig-alt: "Species composition plot figure"
+sp_comp_plot_current_year
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: Figure 2
+#| fig-cap: "Observations by species. Numbers above the bar indicates the number of observations for each species."
 #| fig-alt: "Species composition plot figure"
 sp_comp_plot
 ```
@@ -214,16 +282,11 @@ sp_comp_plot
 #| echo: false
 #| message: false
 #| warning: false
-#| label: Figure 2
+#| label: Figure 3
 #| fig-cap: "Species foraging observations by month"
 #| fig-alt: "Species totals by month histogram"
 hist
 ```
-
-
-
-
-
 
 # March Observations
 
@@ -302,7 +365,6 @@ print(kable(tab, caption = paste("May observations by species and plot")))
 
 # June Observations
 
-
 ```{r}
 #| echo: false
 #| message: false
@@ -328,7 +390,6 @@ print(kable(tab, caption = paste("June observations by species and plot")))
 
 # July Observations
 
-
 ```{r}
 #| echo: false
 #| message: false
@@ -353,7 +414,6 @@ print(kable(tab, caption = paste("July observations by species and plot")))
 ```
 
 # August Observations
-
 
 ```{r}
 #| echo: false
@@ -759,7 +819,6 @@ pcoa_plot_for <- ggplot(data.scores, aes(x = Axis.1, y = Axis.2)) +
   )
 
 ```
-
 
 ```{r}
 #| echo: false
