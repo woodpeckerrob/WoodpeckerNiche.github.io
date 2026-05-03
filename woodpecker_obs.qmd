@@ -263,7 +263,7 @@ hist<-ggplot(pivoted_summary, aes(x = factor(month), y = Total, fill = Species))
 #| warning: false
 #| label: Figure 1
 #| fig-cap: "Observations by species for 2026. Numbers above the bar indicates the number of observations for each species."
-#| fig-alt: "Species composition plot figure"
+#| fig-alt: "Species composition for 2026"
 sp_comp_plot_current_year
 
 ```
@@ -274,7 +274,7 @@ sp_comp_plot_current_year
 #| warning: false
 #| label: Figure 2
 #| fig-cap: "Observations by species. Numbers above the bar indicates the number of observations for each species."
-#| fig-alt: "Species composition plot figure"
+#| fig-alt: "Species composition plot for all years"
 sp_comp_plot
 ```
 
@@ -652,7 +652,7 @@ Now let's see how this looks in multidimensional space. We use a principle coord
 #| echo: false
 #| message: false
 #| warning: false
-#| label: Figure 3
+#| label: Figure 4
 #| fig-cap: "Principle coordinate analysis (PCoA) on the substrate observations by species and plot"
 #| fig-alt: "PCoA plot"
 pcoa_plot2
@@ -824,7 +824,7 @@ pcoa_plot_for <- ggplot(data.scores, aes(x = Axis.1, y = Axis.2)) +
 #| echo: false
 #| message: false
 #| warning: false
-#| label: Figure 4
+#| label: Figure 5
 #| fig-cap: "Principle coordinate analysis (PCoA) on the foraging behavior observations by species and plot"
 #| fig-alt: "PCoA plot 2"
 pcoa_plot_for
