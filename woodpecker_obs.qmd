@@ -29,7 +29,6 @@ Woodpecker observation data collected thus far. Data is arranged by plot, specie
   #devtools::install_github("cmartin/ggConvexHull")
   library(ggConvexHull)
 
-
 }
 
 funk <- function(x){length(unique(x))}
