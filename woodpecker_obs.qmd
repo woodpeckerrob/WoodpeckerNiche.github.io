@@ -256,13 +256,13 @@ sp_comp_plot <- ggplot(tab_pct, aes(x = Plot, y = Percent, fill = Species)) +
 
 # Sum across plot columns (columns 3 to 34)
 pivoted_summary <- pivoted_data %>%
-  mutate(Total = rowSums(select(., `1`:`32`))) %>%
+  mutate(Total = rowSums(select(., `1`:`32`))) %>% 
   group_by(month, Species) %>%
   summarise(Total = sum(Total), .groups = 'drop')
 
 # Plot using ggplot2
 hist<-ggplot(pivoted_summary, aes(x = factor(month), y = Total, fill = Species)) +
-  geom_col(position = "stack") +
+  geom_col(position = "stack") + 
   scale_fill_manual(values = shaded_colors)+
   labs(x = "Month", y = "Total Observations", title = "Species Observations by Month for Both Years") +
   scale_y_continuous(expand=c(0, 0))+ 

@@ -427,6 +427,16 @@ We have sampled most of all plots for the presence of dead trees. On average, th
 snag_df <- snags_with_plot %>%
   st_drop_geometry()
   
+#export snag_data
+# dont need some fields now though
+reduced_snags_with_plot <- snags_with_plot %>%
+  select(-title,-created_at,-uploaded_at,-X5_bearing,-X6_distance_m,-accuracy_7_location,
+         -lat_7_location,-long_7_location,-UTM_Northing_7_location,-UTM_Easting_7_location,-UTM_Zone_7_location,
+         -BUFF_DIST,-ORIG_FID,-Shape_Leng,-ha,-Field,-ORIG_FID_1,-Shape_Le_1,-Shape_Area)
+st_write(reduced_snags_with_plot,"C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\output\\corrected_snag_points.shp",
+         driver = "ESRI Shapefile",delete_layer = T)
+
+# make plot for website
 snag_plot <- ggplot(snag_df, aes(x = factor(Plot_ID), fill = factor(decay))) +
   geom_bar() +
   geom_vline(xintercept = c(7.5, 14.5, 23.5),
