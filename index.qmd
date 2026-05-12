@@ -17,7 +17,7 @@ This work focuses on the changes that occur in woodpecker communities after pres
 
 ![all eight woodpeckers (yellow-bellied sapsuckers migrate and are absent during breeding season)](docs\\data\\woodpeckers.png)
 
-This website was updated:
+This page was updated:
 ```{r}
 #| echo: false
 #| results: 'asis'

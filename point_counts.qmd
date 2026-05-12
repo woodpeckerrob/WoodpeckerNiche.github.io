@@ -686,3 +686,12 @@ month_data <- survey %>%
 # Print the table for the specific location and month
 print(kable(month_data, caption = paste("Order for Tall Timbers", "in", mon)))
 ```
+
+This page was updated:
+```{r}
+#| echo: false
+#| results: 'asis'
+
+cat(format(Sys.Date(), "%B %d, %Y"))
+
+```

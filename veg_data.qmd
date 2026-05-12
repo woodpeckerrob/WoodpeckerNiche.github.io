@@ -296,6 +296,10 @@ hab_sum_df[is.na(hab_sum_df)] <- 0
 # add tree density /m2 
 hab_sum_df$mean_tree_density <- hab_sum_df$tree_mean/(pi*(12/2)^2) #radius of scan is 12m
 
+#export it
+hab_sum_df_table <- as.data.frame(hab_sum_df)
+hab_sum_df_table$geometry <- NULL
+write.csv(hab_sum_df_table,"C:/Users/rmeyer/Documents/WoodpeckerNiche/docs/data/output/habitat_summary_per_plot.csv")
 
 # merge it with the crosswalk and just report summary stats for the different areas.
 crosswalk <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\point_count_id_site_crosswalk.csv")
@@ -310,7 +314,6 @@ hab_summary <- hab_sum_df %>%
     max_canopy_height = mean(max_canopy_height_mean, na.rm = TRUE),
     pine_percent = mean(pine_percent, na.rm = TRUE)
   )
-
 
 ```
 
@@ -667,3 +670,11 @@ final_plot2
 
 It appears that the diversity of snags does not correlate strongly to the number of species (Fig 3A) nor to the species shared between plots (Fig 3B). This makes some sense if particular snags are more useful as opposed to others. Imagine a tree that is not far along in its decay next to another snag that has decayed for much longer. The firsttree is likely thicker, with soft rotten wood (good cavity substrate) while the well-decayed snag is likely short, contains no rotten wood and only a dense heartwood. I expect that the diversity of snags doesn't reflect the number or variety of species at a plot, because only a particular kind of snag matters. The snags that make for good nesting substrates. 
 
+This page was updated:
+```{r}
+#| echo: false
+#| results: 'asis'
+
+cat(format(Sys.Date(), "%B %d, %Y"))
+
+```
