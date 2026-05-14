@@ -860,3 +860,13 @@ pcoa_plot_for <- ggplot(data.scores, aes(x = Axis.1, y = Axis.2)) +
 #| fig-alt: "PCoA plot 2"
 pcoa_plot_for
 ```
+
+
+This page was updated:
+```{r}
+#| echo: false
+#| results: 'asis'
+
+cat(format(Sys.Date(), "%B %d, %Y"))
+
+```
