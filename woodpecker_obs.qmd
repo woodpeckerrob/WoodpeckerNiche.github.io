@@ -486,7 +486,7 @@ colnames(hyper_df) <- c("species","plot","month","foraging_type","substrate","wh
 hyper_df$plot <- paste0(hyper_df$plot,"_",hyper_df$time_since_burn)
 hyper_df$time_since_burn <- NULL
 
-# Step 1: Bin the height_ratNULL# Step 1: Bin the height_ratio values
+# Step 1: Bin the height_ratio values
 hyper_df2 <- hyper_df %>%
   mutate(
     height_bin = case_when(
@@ -500,7 +500,7 @@ hyper_df2 <- hyper_df %>%
   )%>%
   select(-height_ratio,-tree_size)#species, foraging_type, substrate, where, decay_class, tree_size, height_bin, time)
 
-#reduce decay class for now to just alive or dead
+# reduce decay class for now to just alive or dead
 
 hyper_df2$decay_class <- sub("1 live tree", "live_tree", hyper_df2$decay_class)
 hyper_df2$decay_class <- sub("2 recently dead, needles present", "dead_tree", hyper_df2$decay_class)
@@ -511,6 +511,12 @@ hyper_df2$decay_class <- sub("6 broken off top, bole intact", "dead_tree", hyper
 hyper_df2$decay_class <- sub("7 bole decaying 3-6m tall", "dead_tree", hyper_df2$decay_class)
 hyper_df2$decay_class <- sub("8 well-decayed bole, ﹤3m", "dead_tree", hyper_df2$decay_class)
 
+hyper_df2$where <- sub("lower bole (below first secondary limb)", "bole", hyper_df2$where,fixed=T)
+hyper_df2$where <- sub("upper bole (above first secondary limb)", "bole", hyper_df2$where,fixed=T)
+
+#if its ground, make it one thing. Same for air.
+hyper_df2$decay_class[hyper_df2$substrate == "ground"] <- "ground" 
+hyper_df2$decay_class[hyper_df2$substrate == "air"] <- "air"
 
 #
 hyper_long <- hyper_df2 %>%
@@ -542,12 +548,7 @@ hyper_summarized <- hyper_wide %>% {
 
 hyper_data <- hyper_summarized
 hyper_data$id <- NULL
-hyper_data <- subset(hyper_data,hyper_data$species!="HAWO")
-
-#make hawking one thing
-hyper_data$air <- hyper_data$air.air.dead_tree+hyper_data$air.air.live_tree
-hyper_data$air.air.dead_tree <- NULL
-hyper_data$air.air.live_tree <- NULL
+hyper_data <- subset(hyper_data,hyper_data$species!="HAWO")  #remove HAWO for now
 
 
 hyper_data_mean <- hyper_data %>%
@@ -751,7 +752,7 @@ nmds_mod <- metaMDS(gower_dist, k = 2, trace = T)
 
 data.scores <- as.data.frame(nmds_mod$points)  #Using the scores function from vegan to extract 
 #                                                the site scores and convert to a data.frame
-data.scores$sp <- hyper_data_weighted$species  #  create a column of ocean names, from the original data frame 
+data.scores$sp <- hyper_data_weighted$species  #  create a column of species names, from the original data frame 
 #head(data.scores)  #look at the data
 
 ggplot(data.scores, aes(x= MDS1, y= MDS2, col=sp)) + #denote groupings by color "col" and shape
@@ -837,8 +838,8 @@ pcoa_plot_for <- ggplot(data.scores, aes(x = Axis.1, y = Axis.2)) +
   scale_color_manual(values = shaded_colors) +
   scale_fill_manual(values = shaded_colors) +
   theme_bw() +
-  xlim(-0.35, 0.2) +
-  ylim(-0.35, 0.2) +
+  xlim(-0.35, 0.35) +
+  ylim(-0.38, 0.15) +
   facet_wrap(~ sp) +
   labs(
     title = "PCoA of Foraging Mode",
