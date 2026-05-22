@@ -86,17 +86,20 @@ df <- df %>%
 
 # add time since fire
 df$time_since_burn <- NA
-
+df$days_since_burn <- NA
 for(i in 1:nrow(df)){
   temp <- subset(burn_history_plot_level,burn_history_plot_level$plot_id==df$X3_Plot_number[i])
   temp <- subset(temp,temp$Date.of.burn<=df$X6_date[i])
   days_since_burn <- as.numeric(df$X6_date[i]-max(temp$Date.of.burn)) #difference in days
+  df$days_since_burn[i] <- days_since_burn
   if(days_since_burn<=365){
     df$time_since_burn[i] <- 1 # less than 1 year since burn
   }else{
     df$time_since_burn[i] <- 2 # more than 1 year since burn
   }
 }
+
+
 ```
 
 ```{r}
