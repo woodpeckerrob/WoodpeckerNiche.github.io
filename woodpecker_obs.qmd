@@ -28,6 +28,7 @@ Woodpecker observation data collected thus far. Data is arranged by plot, specie
   library(cluster) # for gower
   #devtools::install_github("cmartin/ggConvexHull")
   library(ggConvexHull)
+  library(ggrepel)
 
 }
 
@@ -51,6 +52,17 @@ burn_history_plot_level$Date.of.burn <- as.Date(burn_history_plot_level$Date.of.
 # merge them into one dataframe
 
 df <- merge(x=parent_form,y=child_form,by.x="ec5_uuid",by.y="ec5_parent_uuid")
+
+
+
+###### clean data ######
+# remove bad observations
+
+df <- df|>
+  filter(ec5_uuid.y !="26f4a2cc-0742-4060-a8f1-528958045faf")|>
+  filter(ec5_uuid.y !="2a586372-d1ca-46d3-968a-3ea4d20c506f")
+#
+
 
 # remove columns no longer needed
 {
@@ -88,6 +100,41 @@ df <- df %>%
   # if where isground, call it a ground substrate
     #mutate(X12_where = if_else(X10_Foraging_type == "ground", "ground", X12_where))
 
+#fix hawking so that it is only as much as 15s. 2025 obs went longer
+
+for(i in 1:nrow(df)){
+  temp <- df[i,]
+  if(temp$X10_Foraging_type=="Hawking"){
+    if(temp$X16_time_spent_sec>15){
+      df$X16_time_spent_sec[i] <- 15
+    }
+  }
+}
+pines <- c("leaf","lob","pi","slash")
+# adding pine vs hardwood field
+df$tree_type <- NA
+for(i in 1:nrow(df)){
+  temp <- df[i,]
+  if(any(grepl(paste(pines, collapse = "|"), temp$X14_tree_species, ignore.case = TRUE))){
+      df$tree_type[i] <- "Pine"
+  }else{
+      df$tree_type[i] <- "Hardwood"
+  }
+}
+
+# fix ground foraging so there are no tree parameters and height is 0
+for(i in 1:nrow(df)){
+  temp <- df[i,]
+  if(temp$X12_where=="ground"){
+    df$X13_if_dead_decay_cla[i] <- "9 no tree"
+    df$X14_tree_species[i] <- "NA"
+    df$X15_tree_size_class[i] <- "NA"
+    df$X22_height_ratio[i] <- 0
+    df$tree_type[i] <- "NA"
+  }
+}
+
+
 # add time since fire
 df$time_since_burn <- NA
 df$days_since_burn <- NA
@@ -102,6 +149,7 @@ for(i in 1:nrow(df)){
     df$time_since_burn[i] <- 2 # more than 1 year since burn
   }
 }
+
 
 
 ```
@@ -480,16 +528,115 @@ print(kable(tab, caption = paste("August observations by species and plot")))
 #| echo: false
 #| message: false
 #| include: false
-################################
-##### getting hypervolumes #####
-
 
 #make month col
 df$month_name <- format(df$X6_date, format = "%B")
 df$month_num <- format(df$X6_date, format = "%m")
 
-hyper_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X11_Substrate","X12_where","X13_if_dead_decay_cla","X15_tree_size_class","X22_height_ratio","X16_time_spent_sec","time_since_burn")
-colnames(hyper_df) <- c("species","plot","month","foraging_type","substrate","where","decay_class","tree_size","height_ratio","time","time_since_burn")
+#############################
+### simple charts of percentages and tallies for each species and each category ###
+
+chart_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X11_Substrate","X12_where","X13_if_dead_decay_cla","X15_tree_size_class","X22_height_ratio","X16_time_spent_sec","time_since_burn")
+colnames(chart_df) <- c("species","plot","month","foraging_type","substrate","where","decay_class","tree_size","height_ratio","time","time_since_burn")
+
+#remove HAWO
+chart_df<-subset(chart_df,chart_df$species!="HAWO")
+
+chart_df <- chart_df %>%
+  mutate(
+    height_bin = case_when(
+      height_ratio == 0 ~ "0",
+      height_ratio >= 1 & height_ratio <= 25 ~ "1-25",
+      height_ratio >= 26 & height_ratio <= 50 ~ "26-50",
+      height_ratio >= 51 & height_ratio <= 75 ~ "51-75",
+      height_ratio >= 76 & height_ratio <= 100 ~ "76-100",
+      TRUE ~ "unknown"
+    )
+  )
+
+
+# create function to explore the many parameters and weight them or not, by time.
+create_pie <- function(data, group_col, cat_col, weightoff = FALSE, weight_col = "time") {
+  plot_label <- "(time weighted)"
+  #toggle occurance or time weighting
+  if(weightoff){
+    data[[weight_col]] <- 1  # turn them all to 1s so it's just the number of times that's calculated
+    plot_label <- "(by occurance)"
+    
+  }
+  # Calculate sample sizes first (before summarizing)
+  sample_sizes <- data %>%
+    group_by(across(all_of(c(group_col, cat_col)))) %>%
+    summarise(n = n(), .groups = "drop")
+  
+  # Sum time by group and category, then calculate percentages
+  plot_data <- data %>%
+    group_by(across(all_of(c(group_col, cat_col)))) %>%
+    summarise(Total_Time = sum(.data[[weight_col]]), .groups = "drop") %>%
+    left_join(sample_sizes, by = c(group_col, cat_col)) %>%
+    complete(!!sym(group_col), !!sym(cat_col), fill = list(Total_Time = 0, n = 0)) %>%
+    group_by(!!sym(group_col)) %>%
+    mutate(
+      Percentage = (Total_Time / sum(Total_Time)) * 100,
+      Position = 100 - (cumsum(Percentage) - Percentage / 2),  # Reverse for counter-clockwise
+      Label = ifelse(Percentage > 0, sprintf("%.1f%% (n=%d)", Percentage, n), "")
+    ) %>%
+    ungroup()
+  
+  # Calculate total sample size per group for subtitle
+  total_sample_sizes <- data %>%
+    group_by(!!sym(group_col)) %>%
+    summarise(N = n(), .groups = "drop")
+  
+  # Create pie charts
+  p <- ggplot(plot_data, aes(x = "", y = Percentage, fill = .data[[cat_col]])) +
+    geom_bar(stat = "identity", width = 1, color = "white", linewidth = 0.5) +
+    coord_polar("y", start = 0, direction = -1) +
+    # Add labels outside the pie
+    geom_text(
+      aes(y = Position, label = Label),
+      x = 1.7,  # Position outside the pie
+      size = 3,
+      fontface = "bold",
+      show.legend = FALSE
+    ) +
+    # Add connector lines
+    geom_segment(
+      data = plot_data %>% filter(Percentage > 0),
+      aes(x = 1.3, xend = 1.6, y = Position, yend = Position),
+      color = "gray50",
+      size = 0.3
+    ) +
+    facet_wrap(as.formula(paste("~", group_col))) +
+    theme_void() +
+    theme(
+      strip.text = element_text(size = 14, face = "bold", margin = margin(b = 10)),
+      plot.title = element_text(size = 16, face = "bold", hjust = 0.5, margin = margin(b = 5)),
+      plot.subtitle = element_text(size = 11, hjust = 0.5, color = "gray40", margin = margin(b = 15)),
+      legend.title = element_text(size = 12, face = "bold"),
+      legend.text = element_text(size = 10),
+      legend.position = "right",
+      plot.margin = margin(10, 10, 10, 10)
+    ) +
+    labs(
+      title = paste("Distribution of", cat_col, "by", group_col, plot_label),
+      fill = cat_col
+    )
+  
+  return(p)
+}
+create_pie(chart_df, "species", "foraging_type",TRUE)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| include: false
+################################
+##### getting hypervolumes #####
+
+hyper_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X11_Substrate","X12_where","X13_if_dead_decay_cla","X15_tree_size_class","X22_height_ratio","tree_type","X16_time_spent_sec","time_since_burn")
+colnames(hyper_df) <- c("species","plot","month","foraging_type","substrate","where","decay_class","tree_size","height_ratio","tree_type","time","time_since_burn")
 hyper_df$plot <- paste0(hyper_df$plot,"_",hyper_df$time_since_burn)
 hyper_df$time_since_burn <- NULL
 
@@ -517,6 +664,7 @@ hyper_df2$decay_class <- sub("5 loss most of secondary limbs", "dead_tree", hype
 hyper_df2$decay_class <- sub("6 broken off top, bole intact", "dead_tree", hyper_df2$decay_class)
 hyper_df2$decay_class <- sub("7 bole decaying 3-6m tall", "dead_tree", hyper_df2$decay_class)
 hyper_df2$decay_class <- sub("8 well-decayed bole, ﹤3m", "dead_tree", hyper_df2$decay_class)
+hyper_df2$decay_class <- sub("9 no tree", "no_tree", hyper_df2$decay_class)
 
 hyper_df2$where <- sub("lower bole (below first secondary limb)", "bole", hyper_df2$where,fixed=T)
 hyper_df2$where <- sub("upper bole (above first secondary limb)", "bole", hyper_df2$where,fixed=T)
@@ -532,14 +680,16 @@ hyper_df2$foraging_type <- NULL
 uni_cols <- length(c(unique(c(unique(hyper_df2$substrate),
        unique(hyper_df2$where),
        unique(hyper_df2$decay_class),
-       unique(hyper_df2$height_bin)))))
+       unique(hyper_df2$height_bin),
+       unique(hyper_df2$tree_type)))))
 
 #prep dummy table for for() loop
 hyper_data_wide <- as.data.frame(matrix(NA,ncol=2+uni_cols,nrow=1))
 colnames(hyper_data_wide) <- c("species","plot",unique(c(unique(hyper_df2$substrate),
        unique(hyper_df2$where),
        unique(hyper_df2$decay_class),
-       unique(hyper_df2$height_bin))))
+       unique(hyper_df2$height_bin),
+       unique(hyper_df2$tree_type))))
 
 #loops needed are length of uni
 uni <- unique(hyper_df2[, c("species", "plot")])
@@ -556,7 +706,8 @@ hyper_data_wide_temp <- as.data.frame(matrix(NA,ncol=2+uni_cols,nrow=1))
 colnames(hyper_data_wide_temp) <- c("species","plot",unique(c(unique(hyper_df2$substrate),
        unique(hyper_df2$where),
        unique(hyper_df2$decay_class),
-       unique(hyper_df2$height_bin))))
+       unique(hyper_df2$height_bin),
+       unique(hyper_df2$tree_type))))
 
       # Calculate summed time for each unique w value (substrate)
 time_by_group <- subset_data %>%
@@ -675,7 +826,7 @@ pcoa_result <- ape::pcoa(gower_dist)
 # Extract scores for first two axes
 data.scores <- as.data.frame(pcoa_result$vectors[, 1:2])
 #data.scores <- as.data.frame(pcoa_result$points)  #Using the scores function from vegan to extract 
-data.scores$sp <- hyper_data_wide$species  #  create a column of ocean names, from the original data frame 
+data.scores$sp <- hyper_data_wide$species  #  create a column of species names, from the original data frame 
 plot_and_burn <- strsplit(hyper_data_wide$plot, "_")#[[1]]
 
 data.scores$plot <- sapply(plot_and_burn, `[`, 1)
@@ -765,6 +916,8 @@ Now let's see how this looks in multidimensional space. We use a principle coord
 pcoa_plot2
 ```
 
+
+
 And for foraging mode...
 
 ```{r}
@@ -781,11 +934,6 @@ colnames(hyper_df) <- c("species","plot","month","foraging_type","time",
                         "time_since_fire")
 hyper_df$plot <- paste0(hyper_df$plot,"_",hyper_df$time_since_fire)
 hyper_df$time_since_fire <- NULL
-
-
-
-
-
 
 
 #hyper_summarized$species <- hyper_df2$species
@@ -947,8 +1095,8 @@ pcoa_plot_for <- ggplot(data.scores, aes(x = Axis.1, y = Axis.2)) +
   scale_color_manual(values = shaded_colors) +
   scale_fill_manual(values = shaded_colors) +
   theme_bw() +
-  xlim(-0.35, 0.35) +
-  ylim(-0.38, 0.15) +
+  xlim(min(Axis.1), max(Axis.1)) +
+  ylim(min(Axis.2), max(Axis.2)) +
   facet_wrap(~ sp) +
   labs(
     title = "PCoA of Foraging Mode",
@@ -971,7 +1119,7 @@ pcoa_plot_for <- ggplot(data.scores, aes(x = Axis.1, y = Axis.2)) +
 pcoa_plot_for
 ```
 
-Now let's combine both foraging mode and substrate and see how all species devide multivariate space.
+Now let's combine both foraging mode and substrate and see how all species divide multivariate space.
 
 ```{r}
 #| echo: false
@@ -984,8 +1132,8 @@ Now let's combine both foraging mode and substrate and see how all species devid
 df$month_name <- format(df$X6_date, format = "%B")
 df$month_num <- format(df$X6_date, format = "%m")
 
-hyper_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X11_Substrate","X12_where","X13_if_dead_decay_cla","X15_tree_size_class","X22_height_ratio","X16_time_spent_sec","time_since_burn")
-colnames(hyper_df) <- c("species","plot","month","foraging_type","substrate","where","decay_class","tree_size","height_ratio","time","time_since_burn")
+hyper_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X11_Substrate","X12_where","X13_if_dead_decay_cla","X15_tree_size_class","X22_height_ratio","tree_type","X16_time_spent_sec","time_since_burn")
+colnames(hyper_df) <- c("species","plot","month","foraging_type","substrate","where","decay_class","tree_size","height_ratio","tree_type","time","time_since_burn")
 hyper_df$plot <- paste0(hyper_df$plot,"_",hyper_df$time_since_burn)
 hyper_df$time_since_burn <- NULL
 
@@ -1013,6 +1161,7 @@ hyper_df2$decay_class <- sub("5 loss most of secondary limbs", "dead_tree", hype
 hyper_df2$decay_class <- sub("6 broken off top, bole intact", "dead_tree", hyper_df2$decay_class)
 hyper_df2$decay_class <- sub("7 bole decaying 3-6m tall", "dead_tree", hyper_df2$decay_class)
 hyper_df2$decay_class <- sub("8 well-decayed bole, ﹤3m", "dead_tree", hyper_df2$decay_class)
+hyper_df2$decay_class <- sub("9 no tree", "no_tree", hyper_df2$decay_class)
 
 hyper_df2$where <- sub("lower bole (below first secondary limb)", "bole", hyper_df2$where,fixed=T)
 hyper_df2$where <- sub("upper bole (above first secondary limb)", "bole", hyper_df2$where,fixed=T)
@@ -1029,7 +1178,8 @@ uni_cols <- length(c(unique(c(unique(hyper_df2$substrate),
        unique(hyper_df2$where),
        unique(hyper_df2$foraging_type),
        unique(hyper_df2$decay_class),
-       unique(hyper_df2$height_bin)))))
+       unique(hyper_df2$height_bin),
+       unique(hyper_df2$tree_type)))))
 
 #prep dummy table for for() loop
 hyper_data_wide <- as.data.frame(matrix(NA,ncol=2+uni_cols,nrow=1))
@@ -1037,7 +1187,8 @@ colnames(hyper_data_wide) <- c("species","plot",unique(c(unique(hyper_df2$substr
        unique(hyper_df2$where),
        unique(hyper_df2$foraging_type),
        unique(hyper_df2$decay_class),
-       unique(hyper_df2$height_bin))))
+       unique(hyper_df2$height_bin),
+       unique(hyper_df2$tree_type))))
 
 #loops needed are length of uni
 uni <- unique(hyper_df2[, c("species", "plot")])
@@ -1055,7 +1206,8 @@ colnames(hyper_data_wide_temp) <- c("species","plot",unique(c(unique(hyper_df2$s
        unique(hyper_df2$where),
        unique(hyper_df2$foraging_type),
        unique(hyper_df2$decay_class),
-       unique(hyper_df2$height_bin))))
+       unique(hyper_df2$height_bin),
+       unique(hyper_df2$tree_type))))
 
       # Calculate summed time for each unique w value (substrate)
 time_by_group <- subset_data %>%
