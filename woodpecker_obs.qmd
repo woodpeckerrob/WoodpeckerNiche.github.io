@@ -29,10 +29,13 @@ Woodpecker observation data collected thus far. Data is arranged by plot, specie
   #devtools::install_github("cmartin/ggConvexHull")
   library(ggConvexHull)
   library(ggrepel)
+  library(geosphere)
+  library(stars)
 
 }
 
 funk <- function(x){length(unique(x))}
+
 
 ```
 
@@ -48,7 +51,7 @@ parent_form <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\da
 child_form <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\form-2__behaviors.csv")
 burn_history_plot_level <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\plot_by_year_burn_dates.csv")
 burn_history_plot_level$Date.of.burn <- as.Date(burn_history_plot_level$Date.of.burn, format = "%m/%d/%Y")
-
+plots <- st_read("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\shapefiles\\Ch2_all_study_plots.shp")
 # merge them into one dataframe
 
 df <- merge(x=parent_form,y=child_form,by.x="ec5_uuid",by.y="ec5_parent_uuid")
@@ -150,7 +153,52 @@ for(i in 1:nrow(df)){
   }
 }
 
+# correct GPS points and output that
+# Create matrix of observer coordinates (lon, lat)
+observer_coords <- df %>%
+  select(long_19_location, lat_19_location) %>%
+  as.matrix()
 
+# Calculate new coords based on bearing and distance
+true_bird_coords <- geosphere::destPoint(
+  p = observer_coords,
+  b = as.numeric(df$X18_bearing),     # bearing in degrees
+  d = as.numeric(df$X17_distance_m)   # distance in meters
+)
+df$true_long <- true_bird_coords[,1]
+df$true_lat <- true_bird_coords[,2]
+df <- df%>%
+  select(-long_19_location,-lat_19_location,-accuracy_19_location,-UTM_Northing_19_location,-UTM_Easting_19_location,-UTM_Zone_19_location,-X17_distance_m,-X18_bearing)
+
+
+# plot if you want
+library(ggplot2)
+library(ggrepel)
+
+ggplot(df, aes(x = true_long, y = true_lat,group=X3_Plot_number)) +
+    geom_point() +
+    geom_text_repel(aes(label = X3_Plot_number)) +
+    facet_wrap(~X3_Plot_number)+
+    labs(x = "Longitude", y = "Latitude", title = "GPS Coordinates") +
+    theme_minimal()
+# looks like some plots were mislabeled. Let's fix that
+df_sf <- st_as_sf(df, coords = c("true_long", "true_lat"),crs = st_crs(4326))
+# Transform to match CRS of the plots shapefile
+df_sf <- st_transform(df_sf, crs = st_crs(plots))
+
+plots_buffer <- st_buffer(plots, dist = 15) #15m buffer to account for gps and obs error
+
+within_plots <- st_join(df_sf, plots_buffer, join = st_within)
+
+df$X3_Plot_number <- within_plots$Plot_ID  # overwrite plot number with Plot ID based on location
+
+# look at points cut out since they were not in plot
+#df_na <- df %>% filter(is.na(X3_Plot_number)) #104 points removed
+#df_na_sf <- st_as_sf(df_na,coords = c("true_long", "true_lat"),crs = st_crs(4326))
+#st_write(df_na_sf,"outside_points.shp",delete_dsn = T)
+
+# remove points outside plot
+df <- df %>% filter(!is.na(X3_Plot_number))
 
 ```
 
@@ -536,8 +584,8 @@ df$month_num <- format(df$X6_date, format = "%m")
 #############################
 ### simple charts of percentages and tallies for each species and each category ###
 
-chart_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X11_Substrate","X12_where","X13_if_dead_decay_cla","X15_tree_size_class","X22_height_ratio","X16_time_spent_sec","time_since_burn")
-colnames(chart_df) <- c("species","plot","month","foraging_type","substrate","where","decay_class","tree_size","height_ratio","time","time_since_burn")
+chart_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X11_Substrate","X12_where","X13_if_dead_decay_cla","X15_tree_size_class","X22_height_ratio","tree_type","X16_time_spent_sec","time_since_burn")
+colnames(chart_df) <- c("species","plot","month","foraging_type","substrate","where","decay_class","tree_size","height_ratio","tree_type","time","time_since_burn")
 
 #remove HAWO
 chart_df<-subset(chart_df,chart_df$species!="HAWO")
@@ -634,6 +682,27 @@ create_pie(chart_df, "species", "foraging_type",TRUE)
 #| include: false
 ################################
 ##### getting hypervolumes #####
+
+#woodpecker colors for graphs later:
+shaded_colors <- c(
+  DOWO_1 = "gray20",  
+  DOWO_2 = "gray80",  
+
+  NOFL_1 = "#B8860B",  # dark yello
+  NOFL_2 = "#FFFFE0",  # light yellow
+
+  RHWO_1 = "#67000D",  # dark red
+  RHWO_2 = "#FB6A4A",  # light red
+
+  RBWO_1 = "#4A1486",  # dark purple
+  RBWO_2 = "#9E9AC8",  # light purple
+
+  RCWO_1 = "#08306B",  # dark violet
+  RCWO_2 = "#6BAED6",  # light violet-blue
+
+  PIWO_1 = "#006D2C",  # dark teal-green
+  PIWO_2 = "#A1D99B"   # light teal-green
+)
 
 hyper_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X11_Substrate","X12_where","X13_if_dead_decay_cla","X15_tree_size_class","X22_height_ratio","tree_type","X16_time_spent_sec","time_since_burn")
 colnames(hyper_df) <- c("species","plot","month","foraging_type","substrate","where","decay_class","tree_size","height_ratio","tree_type","time","time_since_burn")
@@ -840,27 +909,6 @@ xlab <- paste0("PCoA Axis 1 (", round(var_explained[1], 1), "%)")
 ylab <- paste0("PCoA Axis 2 (", round(var_explained[2], 1), "%)")
 
 
-shaded_colors <- c(
-  DOWO_1 = "gray20",  
-  DOWO_2 = "gray80",  
-
-  NOFL_1 = "#B8860B",  # dark yello
-  NOFL_2 = "#FFFFE0",  # light yellow
-
-  RHWO_1 = "#67000D",  # dark red
-  RHWO_2 = "#FB6A4A",  # light red
-
-  RBWO_1 = "#4A1486",  # dark purple
-  RBWO_2 = "#9E9AC8",  # light purple
-
-  RCWO_1 = "#08306B",  # dark violet
-  RCWO_2 = "#6BAED6",  # light violet-blue
-
-  PIWO_1 = "#006D2C",  # dark teal-green
-  PIWO_2 = "#A1D99B"   # light teal-green
-)
-
-
 pcoa_plot <- ggplot(data.scores, aes(x= Axis.1, y= Axis.2, col=sp)) + #denote groupings by color "col" and shape
   geom_point(aes(size=time_since_fire)) +#adds points
   #geom_text(aes(label=rownames(data.scores)),hjust=0, vjust=0)+#adds island names
@@ -1042,27 +1090,6 @@ data.scores <- data.scores %>%
 var_explained <- pcoa_result$values$Relative_eig[1:2] * 100  # First two axes
 xlab <- paste0("PCoA Axis 1 (", round(var_explained[1], 1), "%)")
 ylab <- paste0("PCoA Axis 2 (", round(var_explained[2], 1), "%)")
-
-
-shaded_colors <- c(
-  DOWO_1 = "gray20",  
-  DOWO_2 = "gray80",  
-
-  NOFL_1 = "#B8860B",  # dark yello
-  NOFL_2 = "#FFFFE0",  # light yellow
-
-  RHWO_1 = "#67000D",  # dark red
-  RHWO_2 = "#FB6A4A",  # light red
-
-  RBWO_1 = "#4A1486",  # dark purple
-  RBWO_2 = "#9E9AC8",  # light purple
-
-  RCWO_1 = "#08306B",  # dark violet
-  RCWO_2 = "#6BAED6",  # light violet-blue
-
-  PIWO_1 = "#006D2C",  # dark teal-green
-  PIWO_2 = "#A1D99B"   # light teal-green
-)
 
 
 pcoa_plot <- ggplot(data.scores, aes(x= Axis.1, y= Axis.2, col=sp)) + #denote groupings by color "col" and shape
@@ -1338,11 +1365,13 @@ ggplot(data.scores, aes(x= MDS1, y= MDS2, col=sp)) + #denote groupings by color 
 
 #pcoa_result <- cmdscale(gower_dist, eig = TRUE, k = 2) # k = number of dimensions
 pcoa_result <- ape::pcoa(gower_dist)
+#see contributions
+cont <- cor(data_df,pcoa_result$vectors)
 
 # Extract scores for first two axes
 data.scores <- as.data.frame(pcoa_result$vectors[, 1:2])
 #data.scores <- as.data.frame(pcoa_result$points)  #Using the scores function from vegan to extract 
-data.scores$sp <- hyper_data_wide$species  #  create a column of ocean names, from the original data frame 
+data.scores$sp <- hyper_data_wide$species  #  create a column of species names, from the original data frame 
 plot_and_burn <- strsplit(hyper_data_wide$plot, "_")#[[1]]
 
 data.scores$plot <- sapply(plot_and_burn, `[`, 1)
@@ -1356,25 +1385,6 @@ xlab <- paste0("PCoA Axis 1 (", round(var_explained[1], 1), "%)")
 ylab <- paste0("PCoA Axis 2 (", round(var_explained[2], 1), "%)")
 
 
-shaded_colors <- c(
-  DOWO_1 = "gray20",  
-  DOWO_2 = "gray80",  
-
-  NOFL_1 = "#B8860B",  # dark yello
-  NOFL_2 = "#FFFFE0",  # light yellow
-
-  RHWO_1 = "#67000D",  # dark red
-  RHWO_2 = "#FB6A4A",  # light red
-
-  RBWO_1 = "#4A1486",  # dark purple
-  RBWO_2 = "#9E9AC8",  # light purple
-
-  RCWO_1 = "#08306B",  # dark violet
-  RCWO_2 = "#6BAED6",  # light violet-blue
-
-  PIWO_1 = "#006D2C",  # dark teal-green
-  PIWO_2 = "#A1D99B"   # light teal-green
-)
 
 
 pcoa_plot <- ggplot(data.scores, aes(x= Axis.1, y= Axis.2, col=sp)) + #denote groupings by color "col" and shape
