@@ -70,6 +70,9 @@ s.dat <- s.dat[!is.na(s.dat$lat_7_location),]
 
 #meta-data for tls scans. good to see how many have been done thus far.
 tls_meta_data <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\form-1__tsl.csv")
+#22aa5823-de94-486e-90de-bfaf0aad94ae was made to fill in a missing data point
+tls_meta_data$created_at[tls_meta_data$ec5_uuid=="22aa5823-de94-486e-90de-bfaf0aad94ae"] <- "2026-05-29T11:20:35.000Z"
+
 tls_meta_data$date <- ymd(substr(tls_meta_data$created_at,0,10))
 tls_meta_data <- subset(tls_meta_data,tls_meta_data$X8_check_if_we_need_t=="") #remove any where we redid the scan
 tls_meta_data$time <- hms(tls_meta_data$X1_time_during_scan)
@@ -83,7 +86,6 @@ tls_meta_data <- tls_meta_data[!tls_meta_data$ec5_uuid %in% failed, ]
 
 # subset to dates at and before 6/10 since that's all the scan's I've converted to las so far (6/13/25)
 #tls_meta_data <- subset(tls_meta_data,tls_meta_data$date <= as.Date("2025-06-16"))
-
 
 #TLS habitat structure data
 tls_hab_data <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\tls_habitat_metrics.csv")
@@ -107,10 +109,11 @@ tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "07_22_2025_Setup3", ]
 tls_hab_data <- tls_hab_data[!tls_hab_data$Scan_ID %in% "07_22_2025_Setup4", ]
 
 
-
+#removing Shelby data
 tls_hab_data <- tls_hab_data[!tls_hab_data$date %in% "2025-07-01", ]
 tls_hab_data <- tls_hab_data[!tls_hab_data$date %in% "2025-07-14", ]
 tls_hab_data <- tls_hab_data[!tls_hab_data$date %in% "2025-07-15", ]
+tls_hab_data <- tls_hab_data[!tls_hab_data$date %in% "2025-08-20", ]
 
 
 
@@ -150,7 +153,8 @@ tls_with_plots <- st_join(tls_data_sf, plots)
 
 # subset for plotting
 tls_subset <- tls_with_plots %>%
-  filter(Plot_ID %in% c(6, 14, 22, 32))
+  filter(date<="2026-01-01") %>%
+  filter(Plot_ID %in% c(6, 10, 17, 24))
 
 
 
@@ -207,9 +211,9 @@ legend_plot <- ggplot(legend_data, aes(x = x, y = y)) +
 shared_legend <- cowplot::get_legend(legend_plot)
 
 p1 <- plot_one(6)
-p2 <- plot_one(14)
-p3 <- plot_one(22)
-p4 <- plot_one(32)
+p2 <- plot_one(10)
+p3 <- plot_one(17)
+p4 <- plot_one(24)
 
 # Combine with cowplot
 tls_plots <- cowplot::plot_grid(p1, p2, p3, p4, ncol = 2)
@@ -232,7 +236,7 @@ final_plot <- cowplot::plot_grid(
 #| message: false
 #| warning: false
 #| label: Figure 2
-#| fig-cap: "Four example plots, one from each study site, displaying stratified points of canopy cover (circles) and snag locations (triangles). Snags are colored by decay class where increasing number represents more decayed trees."
+#| fig-cap: "Four example plots, one from each study site, displaying stratified points of canopy cover (circles) and snag locations (triangles). Snags are colored by decay class where increasing number represents more decayed trees. Some sites have many dead trees and some have very few."
 #| fig-alt: "Example habitat plots"
 final_plot
 
