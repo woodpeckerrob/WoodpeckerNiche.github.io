@@ -237,7 +237,7 @@ colnames(pivoted_data) <- c("year","month","Species",1:32)
 
 #make colors for the plots so they match somewhat
 shaded_colors <- c(
-  DOWO = "gray50",  
+  DOWO = "gray50",
   NOFL = "#FFFFE0",  # dark yellow
   RHWO = "#FB6A4A",  # dark red
   RBWO = "#9E9AC8",  # dark purple

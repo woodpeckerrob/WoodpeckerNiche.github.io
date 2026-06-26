@@ -64,14 +64,26 @@ s.dat <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\ra
 s.dat <- s.dat[!is.na(s.dat$lat_7_location),]
 
 
-# example tls scan
-
-#las <- readLAS("C:\\Users\\rmeyer\\Documents\\niche_quarto\\WoodpeckerNiche.github.io\\docs\\data\\raw\\tls_scan_data\\example_4_30_25_HtN_Setup39.las")
-
 #meta-data for tls scans. good to see how many have been done thus far.
 tls_meta_data <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\raw\\form-1__tsl.csv")
+
+
+#######
+###### Clean the data ######
 #22aa5823-de94-486e-90de-bfaf0aad94ae was made to fill in a missing data point
 tls_meta_data$created_at[tls_meta_data$ec5_uuid=="22aa5823-de94-486e-90de-bfaf0aad94ae"] <- "2026-05-29T11:20:35.000Z"
+#fix a wrong time
+tls_meta_data$X1_time_during_scan[tls_meta_data$ec5_uuid=="22aa5823-de94-486e-90de-bfaf0aad94ae"]<- "11:30:00"
+# correct a misIDed scan point number
+tls_meta_data$X3_scan_id_num[tls_meta_data$ec5_uuid=="838a7fbb-51b6-4ea6-82e9-771085dd21a8"]<- 234
+tls_meta_data$X3_scan_id_num[tls_meta_data$ec5_uuid=="73fadebb-263e-41f8-9ab3-2ff37955f835"]<- 537
+tls_meta_data$X3_scan_id_num[tls_meta_data$ec5_uuid=="a54f1f65-3858-466f-9c3a-8382e002a98e"]<- 538
+tls_meta_data$X3_scan_id_num[tls_meta_data$ec5_uuid=="4e23780f-461b-4141-b9ef-f571149ab5bc"]<- 540
+tls_meta_data$X3_scan_id_num[tls_meta_data$ec5_uuid=="cdfeca05-c1f0-4355-a816-88a0368da25d"]<- 547
+tls_meta_data$X3_scan_id_num[tls_meta_data$ec5_uuid=="3b36ebc9-8a3d-4983-ad5c-75aa0003599d"]<- 1094
+
+
+
 
 tls_meta_data$date <- ymd(substr(tls_meta_data$created_at,0,10))
 tls_meta_data <- subset(tls_meta_data,tls_meta_data$X8_check_if_we_need_t=="") #remove any where we redid the scan
@@ -141,7 +153,12 @@ for(i in 1:length(udays)){
 #remove rows with no spatial data
 tls_data <- tls_data[!is.na(tls_data$UTM_Northing_7_scan_loc),]
 
-#turn tls_data into a spatial object
+remove <- c("9b94600f-bb4e-4ec9-9059-fd0c204446ac")  # a repeat of the same scan (870 and mislabeled as 871)
+tls_data <- tls_data[!tls_data$ec5_uuid %in% remove, ]
+
+#######
+###### make tls data spatial object ######
+
 tls_data_sf <- tls_data %>%
   st_as_sf(coords = c("long_7_scan_loc", "lat_7_scan_loc"), crs = 4326)
 
@@ -151,16 +168,125 @@ tls_data_sf <- st_transform(tls_data_sf, crs = st_crs(plots))
 # merge with plots data
 tls_with_plots <- st_join(tls_data_sf, plots)
 
+
+# optional: export 2026 to see if it looks correct
+
+#scans_2026 <- subset(tls_with_plots,tls_with_plots$date>="2026-01-01")
+#st_write(scans_2026,"C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\output\\2026_scans.shp",driver = "ESRI Shapefile",delete_layer = T)
+
+###### did 2026 differ from 2025? ######
+
+tls_with_plots_df <- as.data.frame(tls_with_plots)
+dups <- tls_with_plots_df[tls_with_plots_df$X3_scan_id_num %in% names(which(table(tls_with_plots_df$X3_scan_id_num) > 1)), ]
+
+dups <- dups %>%
+  select(date,X3_scan_id_num,num_trees,percent_vertical_cover,basal_area_m,max_canopy_height_m,property_n)
+
+dups$date <- substr(dups$date,1,4)
+dups$max_canopy_height_m[is.infinite(dups$max_canopy_height_m)] <- 0
+
+mod <- manova(cbind(num_trees, percent_vertical_cover,basal_area_m,max_canopy_height_m) ~ date, data = dups)
+summary(mod) # no difference found across all plots by year
+summary.aov(mod)
+
+uni <- unique(dups$X3_scan_id_num)
+dups$date <- as.numeric(dups$date)
+temp_tab <- data.frame()
+
+for(i in 1:length(uni)){
+  temp <- subset(dups,dups$X3_scan_id_num==uni[i]) # extract pair
+  temp <- temp %>% arrange(date) #########################################################
+  temp_ID <- unique(temp$X3_scan_id_num)
+  temp_num_diff <- temp$num_trees[2]-temp$num_trees[1]
+  temp_per_diff <- temp$percent_vertical_cover[2]-temp$percent_vertical_cover[1]
+  temp_ba_diff <- temp$basal_area_m[2]-temp$basal_area_m[1]
+  temp_canopy_diff <- temp$max_canopy_height_m[2]-temp$max_canopy_height_m[1]
+  temp_row <- c(temp_ID,temp_num_diff,temp_per_diff,temp_ba_diff,temp_canopy_diff)
+  temp_tab <- rbind(temp_tab,temp_row)
+}
+colnames(temp_tab) <- c("scan_id","num_t_diff","per_can_diff","ba_diff","can_height_diff")
+hist(temp_tab$num_t_diff)
+value <- 1.96*sd(temp_tab$num_t_diff)
+sum(temp_tab$num_t_diff > value, na.rm = TRUE)+sum(temp_tab$num_t_diff < (-1*value), na.rm = TRUE) #6
+
+value <- 1.96*sd(temp_tab$per_can_diff)
+sum(temp_tab$per_can_diff > value, na.rm = TRUE)+sum(temp_tab$per_can_diff < (-1*value), na.rm = TRUE) #6
+
+value <- 1.96*sd(temp_tab$ba_diff)
+sum(temp_tab$ba_diff > value, na.rm = TRUE)+sum(temp_tab$ba_diff < (-1*value), na.rm = TRUE) #6
+
+value <- 1.96*sd(temp_tab$can_height_diff)
+sum(temp_tab$can_height_diff > value, na.rm = TRUE)+sum(temp_tab$can_height_diff < (-1*value), na.rm = TRUE) #14
+
+### did plots change much?
+
+#merge temp_tab with tls_with_plots
+plot_scan_crosswalk <- tls_with_plots_df %>%
+  select(X3_scan_id_num,Plot_ID)
+
+temp_tab_plots <- merge(temp_tab,plot_scan_crosswalk,by.x="scan_id",by.y="X3_scan_id_num")
+temp_tab_plots_summary <- temp_tab_plots %>% 
+  distinct() %>%
+  group_by(Plot_ID) %>%
+  summarize(num_t_mean=mean(num_t_diff),
+            per_can_mean=mean(per_can_diff),
+            ba_mean=mean(ba_diff),
+            can_height_mean=mean(can_height_diff))
+
+value <- 1.96*sd(temp_tab_plots_summary$num_t_mean)
+sum(temp_tab_plots_summary$num_t_mean > value, na.rm = TRUE)+sum(temp_tab_plots_summary$num_t_mean < (-1*value), na.rm = TRUE) #2
+
+value <- 1.96*sd(temp_tab_plots_summary$per_can_mean)
+sum(temp_tab_plots_summary$per_can_mean > value, na.rm = TRUE)+sum(temp_tab_plots_summary$per_can_mean < (-1*value), na.rm = TRUE) #1
+
+value <- 1.96*sd(temp_tab_plots_summary$ba_mean)
+sum(temp_tab_plots_summary$ba_mean > value, na.rm = TRUE)+sum(temp_tab_plots_summary$ba_mean < (-1*value), na.rm = TRUE) #2
+
+value <- 1.96*sd(temp_tab_plots_summary$can_height_mean)
+sum(temp_tab_plots_summary$can_height_mean > value, na.rm = TRUE)+sum(temp_tab_plots_summary$can_height_mean < (-1*value), na.rm = TRUE) #1
+
+
+#missing plots include 2, 6, 14, 28, 31
+#plots with missing data:  1, 3, 4, 8, 13, 18, 23, 24, 27
+
+livi <- subset(tls_with_plots,tls_with_plots$property_n=="Tall Timbers")#"Livingston Place")
+livi_25 <- subset(livi,livi$date.1<"2026-01-01")
+livi_26 <- subset(livi,livi$date.1>"2026-01-01")
+
+ggplot() +
+    geom_sf(data = tls_with_plots %>% filter(Plot_ID==2),aes(fill = date.1), size = 2, color = "black", shape=24) +
+    scale_color_viridis_c() +
+    theme_bw() +
+    theme(
+      axis.title = element_blank(),  # removes x and y axis titles
+      axis.text = element_blank(),   # removes x and y axis text
+      legend.position = "none"  # Hide legends from individual plots
+    )
+
+# missing two scans at ARCA plot 2 and need to do full plus
+# 6 and 14 are fine but the scan IDs are wrong. need to go case by case to see what the actual scan numbers are
+# missing the center 5 for plot 28 in 2025, not in meta data, maybe never scanned.
+# some mislabeling at plot 28, 1072 and 1078 were scanned in 2025 but have wrong scan ID
+# plot 27 and 31 are mislabeled as well. 
+
+#plot 1, 3, 8, 13, 18, 24 we need 4 points for the plus, center point is fine.
+#plot 4 we need left and bottom points
+# plot 23 we need top, left, bottom
+# 28 scan 1076, 1088, 1060, 1072, 1060
+
+
+
+
+
+
+######
+
 # subset for plotting
 tls_subset <- tls_with_plots %>%
   filter(date<="2026-01-01") %>%
   filter(Plot_ID %in% c(6, 10, 17, 24))
 
-
-
-
-
-## snags
+###### snags ######
 
 #plot based on decay class as a numeric value
 s.dat$decay <- as.numeric(substr(s.dat$X3_decay_class,0,1))
