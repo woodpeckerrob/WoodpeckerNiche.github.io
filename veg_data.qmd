@@ -274,6 +274,8 @@ ggplot() +
 # plot 23 we need top, left, bottom
 # 28 scan 1076, 1088, 1060, 1072, 1060
 
+# all the above issues with scans at plots fixed by end of June
+
 
 
 
