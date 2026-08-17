@@ -676,6 +676,32 @@ create_pie <- function(data, group_col, cat_col, weightoff = FALSE, weight_col =
 create_pie(chart_df, "species", "foraging_type",TRUE)
 ```
 
+How do species separate by foraging mode?
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: Figure 4
+#| fig-cap: "Pie chart of foraging mode per species."
+#| fig-alt: "Pie chart of foraging mode"
+create_pie(chart_df, "species", "foraging_type",TRUE)
+
+```
+
+How do species separate by foraging substrate?
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| label: Figure 5
+#| fig-cap: "Pie chart of foraging substrate per species."
+#| fig-alt: "Pie chart of foraging substrate"
+create_pie(chart_df, "species", "substrate",TRUE)
+
+```
+
 ```{r}
 #| echo: false
 #| message: false
@@ -741,412 +767,36 @@ hyper_df2$where <- sub("upper bole (above first secondary limb)", "bole", hyper_
 #if its ground, make it one thing. Same for air.
 hyper_df2$decay_class[hyper_df2$substrate == "ground"] <- "ground" 
 hyper_df2$decay_class[hyper_df2$substrate == "air"] <- "air"
+hyper_df2$tree_type[hyper_df2$substrate == "air"] <- "NA"
 
 hyper_df2 <- subset(hyper_df2,hyper_df2$species!="HAWO")  #remove HAWO for now
 hyper_df2$month <- NULL
-hyper_df2$foraging_type <- NULL
-
-uni_cols <- length(c(unique(c(unique(hyper_df2$substrate),
-       unique(hyper_df2$where),
-       unique(hyper_df2$decay_class),
-       unique(hyper_df2$height_bin),
-       unique(hyper_df2$tree_type)))))
-
-#prep dummy table for for() loop
-hyper_data_wide <- as.data.frame(matrix(NA,ncol=2+uni_cols,nrow=1))
-colnames(hyper_data_wide) <- c("species","plot",unique(c(unique(hyper_df2$substrate),
-       unique(hyper_df2$where),
-       unique(hyper_df2$decay_class),
-       unique(hyper_df2$height_bin),
-       unique(hyper_df2$tree_type))))
-
-#loops needed are length of uni
-uni <- unique(hyper_df2[, c("species", "plot")])
-
-# Loop through each uniqu combo of species and plot
-for(i in 1:nrow(uni)) {
-  current_species <- uni$species[i]
-  current_plot <- uni$plot[i]
-  
-    # Subset data for this combination
-  subset_data <- hyper_df2[hyper_df2$species == current_species & 
-                           hyper_df2$plot == current_plot, ]
-hyper_data_wide_temp <- as.data.frame(matrix(NA,ncol=2+uni_cols,nrow=1))
-colnames(hyper_data_wide_temp) <- c("species","plot",unique(c(unique(hyper_df2$substrate),
-       unique(hyper_df2$where),
-       unique(hyper_df2$decay_class),
-       unique(hyper_df2$height_bin),
-       unique(hyper_df2$tree_type))))
-
-      # Calculate summed time for each unique w value (substrate)
-time_by_group <- subset_data %>%
-  group_by(substrate) %>%
-  summarise(prop_time = sum(time)/sum(subset_data$time))
-
-# Fill into other dataframe where column names match w values
-for(h in 1:nrow(time_by_group)) {
-  w_value <- time_by_group$substrate[h]
-  time_value <- time_by_group$prop_time[h]
-  
-  # If hyper_data_wide_temp has a column with that w value name
-  if(w_value %in% names(hyper_data_wide_temp)) {
-    hyper_data_wide_temp[[w_value]] <- time_value
-  }
-}#end for loop
-
-# where
-time_by_group <- subset_data %>%
-  group_by(where) %>%
-  summarise(prop_time = sum(time)/sum(subset_data$time))
-
-# Fill into other dataframe where column names match w values
-for(h in 1:nrow(time_by_group)) {
-  w_value <- time_by_group$where[h]
-  time_value <- time_by_group$prop_time[h]
-  
-  # If hyper_data_wide_temp has a column with that w value name
-  if(w_value %in% names(hyper_data_wide_temp)) {
-    hyper_data_wide_temp[[w_value]] <- time_value
-  }
-}#end for loop
-
-#decay_class
-
-time_by_group <- subset_data %>%
-  group_by(decay_class) %>%
-  summarise(prop_time = sum(time)/sum(subset_data$time))
-
-# Fill into other dataframe where column names match w values
-for(h in 1:nrow(time_by_group)) {
-  w_value <- time_by_group$decay_class[h]
-  time_value <- time_by_group$prop_time[h]
-  
-  # If hyper_data_wide_temp has a column with that w value name
-  if(w_value %in% names(hyper_data_wide_temp)) {
-    hyper_data_wide_temp[[w_value]] <- time_value
-  }
-}#end for loop
-
-#decay_class
-
-time_by_group <- subset_data %>%
-  group_by(height_bin) %>%
-  summarise(prop_time = sum(time)/sum(subset_data$time))
-
-# Fill into other dataframe where column names match w values
-for(h in 1:nrow(time_by_group)) {
-  w_value <- time_by_group$height_bin[h]
-  time_value <- time_by_group$prop_time[h]
-  
-  # If hyper_data_wide_temp has a column with that w value name
-  if(w_value %in% names(hyper_data_wide_temp)) {
-    hyper_data_wide_temp[[w_value]] <- time_value
-  }
-}#end for loop
-
-# add uni info
-hyper_data_wide_temp$species <- current_species
-hyper_data_wide_temp$plot <- current_plot
-
-  #bind to hyper_data_wide
-  hyper_data_wide <- rbind(hyper_data_wide,hyper_data_wide_temp)
-  
-}#end for loop
-
-hyper_data_wide <- hyper_data_wide %>%
-  filter(if_any(everything(), ~ !is.na(.))) %>%  # keep rows with at least one non-NA
-  replace(is.na(.), 0)  # replace remaining NAs with 0
 
 
+# look at table for output. how did we do? did we get lots of obs per species and plot?
 
-#########################
-#####  Ordinations  #####
+sum_tab <- hyper_df2 %>%
+  group_by(species, plot) %>%
+  summarise(count = n(), .groups = 'drop')
 
-data_df <- hyper_data_wide %>%
-  select(-species,-plot)
-gower_dist <- daisy(data_df, metric = "gower")
-
-
-nmds_mod <- metaMDS(gower_dist, k = 2, trace = T)
-#nmds_mod
-
-#stressplot(nmds_mod)
-
-data.scores <- as.data.frame(nmds_mod$points)  #Using the scores function from vegan to extract 
-#                                                the site scores and convert to a data.frame
-data.scores$sp <- hyper_data_wide$species  #  create a column of species names, from the original data frame 
-#head(data.scores)  #look at the data
-
-ggplot(data.scores, aes(x= MDS1, y= MDS2, col=sp)) + #denote groupings by color "col" and shape
-  geom_point() +#adds points
-  #geom_text(aes(label=rownames(data.scores)),hjust=0, vjust=0)+#adds island names
-  stat_ellipse() +#adds ellipses
-  theme_bw() +
-#  xlim(-1.5, 1.5)+
- # ylim(-1.5,1.5)+
-  labs(title = "NMDS Plot")
-
-
-### PCoA
-
-#pcoa_result <- cmdscale(gower_dist, eig = TRUE, k = 2) # k = number of dimensions
-pcoa_result <- ape::pcoa(gower_dist)
-
-# Extract scores for first two axes
-data.scores <- as.data.frame(pcoa_result$vectors[, 1:2])
-#data.scores <- as.data.frame(pcoa_result$points)  #Using the scores function from vegan to extract 
-data.scores$sp <- hyper_data_wide$species  #  create a column of species names, from the original data frame 
-plot_and_burn <- strsplit(hyper_data_wide$plot, "_")#[[1]]
-
-data.scores$plot <- sapply(plot_and_burn, `[`, 1)
-data.scores$time_since_fire <- sapply(plot_and_burn, `[`, 2)
-#data.scores$sp_time <- paste(data.scores$sp,)
-data.scores <- data.scores %>%
-  mutate(sp_fire = paste0(sp, "_", time_since_fire))
-
-var_explained <- pcoa_result$values$Relative_eig[1:2] * 100  # First two axes
-xlab <- paste0("PCoA Axis 1 (", round(var_explained[1], 1), "%)")
-ylab <- paste0("PCoA Axis 2 (", round(var_explained[2], 1), "%)")
-
-
-pcoa_plot <- ggplot(data.scores, aes(x= Axis.1, y= Axis.2, col=sp)) + #denote groupings by color "col" and shape
-  geom_point(aes(size=time_since_fire)) +#adds points
-  #geom_text(aes(label=rownames(data.scores)),hjust=0, vjust=0)+#adds island names
-  #stat_ellipse() +#adds ellipses
-  geom_convexhull(aes(fill = sp), alpha = 0.1)+ # for convex hull
-  theme_bw() +
-#  xlim(-1.5, 1.5)+
- # ylim(-1.5,1.5)+
-    labs(title = "Substrate PCoA Plot",
-       x = xlab,
-       y = ylab)
-
-
-hull_data <- data.scores %>%
-  group_by(sp_fire) %>%
-  slice(chull(Axis.1, Axis.2)) %>%
-  ungroup()
-
-# Plot
-pcoa_plot2 <- ggplot(data.scores, aes(x = Axis.1, y = Axis.2)) +
-  geom_polygon(
-    data = hull_data,
-    aes(x = Axis.1, y = Axis.2, group = sp_fire, fill = sp_fire),
-    alpha = 0.2,
-    color = "black"  # Optional: outline for MCP
-  ) +
-  geom_point(aes(color = sp_fire, size = as.factor(time_since_fire))) +
-  scale_color_manual(values = shaded_colors) +
-  scale_fill_manual(values = shaded_colors) +
-  theme_bw() +
-  xlim(min(data.scores$Axis.1), max(data.scores$Axis.1)) +
-  ylim(min(data.scores$Axis.2), max(data.scores$Axis.2)) +
-  facet_wrap(~ sp) +
-  labs(
-    title = "PCoA of Foraging Substrate",
-    x = xlab,
-    y = ylab,
-    color = "Species / Fire",
-    fill = "Species / Fire",
-    size = "Time Since Fire"
-  )
-```
-
-Now let's see how this looks in multidimensional space. We use a principle coordinate analysis since we are dealing with categorical variables such as the percentage of time gleaning from live secondary branches compared to hawking. We are also interested in time since fire (1 or more than 1 year (coded as 2)).
-
-```{r}
-#| echo: false
-#| message: false
-#| warning: false
-#| label: Figure 4
-#| fig-cap: "Principle coordinate analysis (PCoA) on the substrate observations by species and plot"
-#| fig-alt: "PCoA plot"
-pcoa_plot2
+sum_tab <- sum_tab %>%
+  separate(plot, into = c("plot", "fire"), sep = "_")
+sum_tab$plot <- as.numeric(sum_tab$plot)
+plot_species_counts <- ggplot(sum_tab, aes(x = plot, y = count, fill = fire)) +
+  geom_col() +
+  facet_wrap(~ species) +
+  labs(x = "Plot", y = "Count", fill = "Fire")+
+    scale_fill_manual(values = c("gray10", "darkgreen")) +
+ scale_x_continuous(breaks = c(1, 5, 10, 15, 20, 25, 30), 
+                     minor_breaks = 1:32)+
+  scale_y_continuous(expand=c(0, 0))+
+  theme_bw()+
+  theme(strip.text = element_blank(), legend.position = "none")
 ```
 
 
 
-And for foraging mode...
-
-```{r}
-#| echo: false
-#| message: false
-#| include: false
-################################
-##### getting hypervolumes #####
-
-
-hyper_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X16_time_spent_sec",
-                                 "time_since_burn")
-colnames(hyper_df) <- c("species","plot","month","foraging_type","time",
-                        "time_since_fire")
-hyper_df$plot <- paste0(hyper_df$plot,"_",hyper_df$time_since_fire)
-hyper_df$time_since_fire <- NULL
-
-
-#hyper_summarized$species <- hyper_df2$species
-
-hyper_data <- hyper_df
-hyper_data$month <- NULL
-hyper_data <- subset(hyper_data,hyper_data$species!="HAWO")
-
-uni_cols <- length(c(unique(hyper_data$foraging_type)))
-
-#prep dummy table for for() loop
-hyper_data_wide <- as.data.frame(matrix(NA,ncol=2+uni_cols,nrow=1))
-colnames(hyper_data_wide) <- c("species","plot",unique(hyper_data$foraging_type))
-
-#loops needed are length of uni
-uni <- unique(hyper_data[, c("species", "plot")])
-
-# Loop through each uniqu combo of species and plot
-for(i in 1:nrow(uni)) {
-  current_species <- uni$species[i]
-  current_plot <- uni$plot[i]
-  
-    # Subset data for this combination
-  subset_data <- hyper_data[hyper_data$species == current_species & 
-                           hyper_data$plot == current_plot, ]
-hyper_data_wide_temp <- as.data.frame(matrix(NA,ncol=2+uni_cols,nrow=1))
-colnames(hyper_data_wide_temp) <- c("species","plot",unique(hyper_data$foraging_type))
-
-
-      # Calculate summed time for each unique w value (foraging_type)
-time_by_group <- subset_data %>%
-  group_by(foraging_type) %>%
-  summarise(prop_time = sum(time)/sum(subset_data$time))
-
-# Fill into other dataframe where column names match w values
-for(h in 1:nrow(time_by_group)) {
-  w_value <- time_by_group$foraging_type[h]
-  time_value <- time_by_group$prop_time[h]
-  
-  # If hyper_data_wide_temp has a column with that w value name
-  if(w_value %in% names(hyper_data_wide_temp)) {
-    hyper_data_wide_temp[[w_value]] <- time_value
-  }
-}#end for loop
-
-# add uni info
-hyper_data_wide_temp$species <- current_species
-hyper_data_wide_temp$plot <- current_plot
-
-  #bind to hyper_data_wide
-  hyper_data_wide <- rbind(hyper_data_wide,hyper_data_wide_temp)
-  
-}#end for loop
-
-hyper_data_wide <- hyper_data_wide %>%
-  filter(if_any(everything(), ~ !is.na(.))) %>%  # keep rows with at least one non-NA
-  replace(is.na(.), 0)  # replace remaining NAs with 0
-
-
-#########################
-#####  Ordinations  #####
-
-data_df <- hyper_data_wide %>%
-  select(-species,-plot)
-data_df$species <- NULL
-gower_dist <- daisy(data_df, metric = "gower")
-
-
-nmds_mod <- metaMDS(gower_dist, k = 2, trace = T)
-#nmds_mod
-
-#stressplot(nmds_mod)
-
-data.scores <- as.data.frame(nmds_mod$points)  #Using the scores function from vegan to extract 
-#                                                the site scores and convert to a data.frame
-data.scores$sp <- hyper_data_wide$species  #  create a column of species names, from the original data frame 
-#head(data.scores)  #look at the data
-
-ggplot(data.scores, aes(x= MDS1, y= MDS2, col=sp)) + #denote groupings by color "col" and shape
-  geom_point() +#adds points
-  #geom_text(aes(label=rownames(data.scores)),hjust=0, vjust=0)+#adds island names
-  geom_convexhull(aes(fill = sp), alpha = 0.3)+
-  theme_bw() +
-#  xlim(-1.5, 1.5)+
- # ylim(-1.5,1.5)+
-  labs(title = "NMDS Plot")
-
-
-### PCoA
-
-#pcoa_result <- cmdscale(gower_dist, eig = TRUE, k = 2) # k = number of dimensions
-pcoa_result <- ape::pcoa(gower_dist)
-
-# Extract scores for first two axes
-data.scores <- as.data.frame(pcoa_result$vectors[, 1:2])
-#data.scores <- as.data.frame(pcoa_result$points)  #Using the scores function from vegan to extract 
-data.scores$sp <- hyper_data_wide$species  #  create a column of ocean names, from the original data frame 
-plot_and_burn <- strsplit(hyper_data_wide$plot, "_")#[[1]]
-
-data.scores$plot <- sapply(plot_and_burn, `[`, 1)
-data.scores$time_since_fire <- sapply(plot_and_burn, `[`, 2)
-#data.scores$sp_time <- paste(data.scores$sp,)
-data.scores <- data.scores %>%
-  mutate(sp_fire = paste0(sp, "_", time_since_fire))
-
-var_explained <- pcoa_result$values$Relative_eig[1:2] * 100  # First two axes
-xlab <- paste0("PCoA Axis 1 (", round(var_explained[1], 1), "%)")
-ylab <- paste0("PCoA Axis 2 (", round(var_explained[2], 1), "%)")
-
-
-pcoa_plot <- ggplot(data.scores, aes(x= Axis.1, y= Axis.2, col=sp)) + #denote groupings by color "col" and shape
-  geom_point(aes(size=time_since_fire)) +#adds points
-  #geom_text(aes(label=rownames(data.scores)),hjust=0, vjust=0)+#adds island names
-  #stat_ellipse() +#adds ellipses
-  geom_convexhull(aes(fill = sp), alpha = 0.1)+ # for convex hull
-  theme_bw() +
-#  xlim(-1.5, 1.5)+
- # ylim(-1.5,1.5)+
-    labs(title = "foraging PCoA Plot",
-       x = xlab,
-       y = ylab)
-
-
-hull_data <- data.scores %>%
-  group_by(sp_fire) %>%
-  slice(chull(Axis.1, Axis.2)) %>%
-  ungroup()
-
-# Plot
-pcoa_plot_for <- ggplot(data.scores, aes(x = Axis.1, y = Axis.2)) +
-  geom_polygon(
-    data = hull_data,
-    aes(x = Axis.1, y = Axis.2, group = sp_fire, fill = sp_fire),
-    alpha = 0.2,
-    color = "black"  # Optional: outline for MCP
-  ) +
-  geom_point(aes(color = sp_fire, size = as.factor(time_since_fire))) +
-  scale_color_manual(values = shaded_colors) +
-  scale_fill_manual(values = shaded_colors) +
-  theme_bw() +
-  xlim(min(data.scores$Axis.1), max(data.scores$Axis.1)) +
-  ylim(min(data.scores$Axis.2), max(data.scores$Axis.2)) +
-  facet_wrap(~ sp) +
-  labs(
-    title = "PCoA of Foraging Mode",
-    x = xlab,
-    y = ylab,
-    color = "Species / Fire",
-    fill = "Species / Fire",
-    size = "Time Since Fire"
-  )
-
-```
-
-```{r}
-#| echo: false
-#| message: false
-#| warning: false
-#| label: Figure 5
-#| fig-cap: "Principle coordinate analysis (PCoA) on the foraging behavior observations by species and plot"
-#| fig-alt: "PCoA plot 2"
-pcoa_plot_for
-```
-
-Now let's combine both foraging mode and substrate and see how all species divide multivariate space.
+Now let's see how this looks in multidimensional space. We use a principle coordinate analysis since we are dealing with categorical variables such as the percentage of time gleaning from live secondary branches compared to hawking. We are also interested in time since fire (1 or more than 1 year (coded as 2)). Let's combine both foraging mode and substrate and see how all species divide multivariate space.
 
 ```{r}
 #| echo: false
@@ -1196,6 +846,7 @@ hyper_df2$where <- sub("upper bole (above first secondary limb)", "bole", hyper_
 #if its ground, make it one thing. Same for air.
 hyper_df2$decay_class[hyper_df2$substrate == "ground"] <- "ground" 
 hyper_df2$decay_class[hyper_df2$substrate == "air"] <- "air"
+hyper_df2$tree_type[hyper_df2$substrate == "air"] <- "NA"
 
 hyper_df2 <- subset(hyper_df2,hyper_df2$species!="HAWO")  #remove HAWO for now
 hyper_df2$month <- NULL
@@ -1332,33 +983,12 @@ hyper_data_wide <- hyper_data_wide %>%
   replace(is.na(.), 0)  # replace remaining NAs with 0
 
 
-
 #########################
 #####  Ordinations  #####
 
 data_df <- hyper_data_wide %>%
   select(-species,-plot)
 gower_dist <- daisy(data_df, metric = "gower")
-
-
-nmds_mod <- metaMDS(gower_dist, k = 2, trace = T)
-#nmds_mod
-
-#stressplot(nmds_mod)
-
-data.scores <- as.data.frame(nmds_mod$points)  #Using the scores function from vegan to extract 
-#                                                the site scores and convert to a data.frame
-data.scores$sp <- hyper_data_wide$species  #  create a column of species names, from the original data frame 
-#head(data.scores)  #look at the data
-
-ggplot(data.scores, aes(x= MDS1, y= MDS2, col=sp)) + #denote groupings by color "col" and shape
-  geom_point() +#adds points
-  #geom_text(aes(label=rownames(data.scores)),hjust=0, vjust=0)+#adds island names
-  stat_ellipse() +#adds ellipses
-  theme_bw() +
-#  xlim(-1.5, 1.5)+
- # ylim(-1.5,1.5)+
-  labs(title = "NMDS Plot")
 
 
 ### PCoA
@@ -1440,6 +1070,313 @@ pcoa_plot2 <- ggplot(data.scores, aes(x = Axis.1, y = Axis.2)) +
 #| fig-alt: "PCoA plot 3"
 pcoa_plot2
 ```
+
+
+```{r}
+#| echo: false
+#| message: false
+#| include: false
+##############################################
+##### getting hypervolumes real analysis #####
+
+#make month col
+df$month_name <- format(df$X6_date, format = "%B")
+df$month_num <- format(df$X6_date, format = "%m")
+
+hyper_df <- df %>% dplyr::select("X8_Species","X3_Plot_number","month_num","X10_Foraging_type","X11_Substrate","X12_where","X13_if_dead_decay_cla","X15_tree_size_class","X22_height_ratio","tree_type","X16_time_spent_sec","time_since_burn")
+colnames(hyper_df) <- c("species","plot","month","foraging_type","substrate","where","decay_class","tree_size","height_ratio","tree_type","time","time_since_burn")
+hyper_df$plot <- paste0(hyper_df$plot,"_",hyper_df$time_since_burn)
+hyper_df$time_since_burn <- NULL
+
+# Step 1: Bin the height_ratio values
+hyper_df2 <- hyper_df %>%
+  mutate(
+    height_bin = case_when(
+      height_ratio == 0 ~ "0",
+      height_ratio >= 1 & height_ratio <= 25 ~ "1-25",
+      height_ratio >= 26 & height_ratio <= 50 ~ "26-50",
+      height_ratio >= 51 & height_ratio <= 75 ~ "51-75",
+      height_ratio >= 76 & height_ratio <= 100 ~ "76-100",
+      TRUE ~ "unknown"
+    )
+  )%>%
+  select(-height_ratio,-tree_size)#species, foraging_type, substrate, where, decay_class, tree_size, height_bin, time)
+
+# reduce decay class for now to just alive or dead
+
+hyper_df2$decay_class <- sub("1 live tree", "live_tree", hyper_df2$decay_class)
+hyper_df2$decay_class <- sub("2 recently dead, needles present", "dead_tree", hyper_df2$decay_class)
+hyper_df2$decay_class <- sub("3 dead ﹤3yr, tertiary limbs decaying", "dead_tree", hyper_df2$decay_class)
+hyper_df2$decay_class <- sub("4 loss of most tertiary limbs, secondary limbs present", "dead_tree", hyper_df2$decay_class)
+hyper_df2$decay_class <- sub("5 loss most of secondary limbs", "dead_tree", hyper_df2$decay_class)
+hyper_df2$decay_class <- sub("6 broken off top, bole intact", "dead_tree", hyper_df2$decay_class)
+hyper_df2$decay_class <- sub("7 bole decaying 3-6m tall", "dead_tree", hyper_df2$decay_class)
+hyper_df2$decay_class <- sub("8 well-decayed bole, ﹤3m", "dead_tree", hyper_df2$decay_class)
+hyper_df2$decay_class <- sub("9 no tree", "no_tree", hyper_df2$decay_class)
+
+hyper_df2$where <- sub("lower bole (below first secondary limb)", "bole", hyper_df2$where,fixed=T)
+hyper_df2$where <- sub("upper bole (above first secondary limb)", "bole", hyper_df2$where,fixed=T)
+
+#if its ground, make it one thing. Same for air.
+hyper_df2$decay_class[hyper_df2$substrate == "ground"] <- "ground" 
+hyper_df2$decay_class[hyper_df2$substrate == "air"] <- "air"
+hyper_df2$tree_type[hyper_df2$substrate == "air"] <- "NA"
+
+hyper_df2 <- subset(hyper_df2,hyper_df2$species!="HAWO")  #remove HAWO for now
+hyper_df2$month <- NULL
+#hyper_df2$foraging_type <- NULL
+
+
+
+uni_cols <- length(c(unique(c(unique(hyper_df2$substrate),
+       unique(hyper_df2$where),
+       unique(hyper_df2$foraging_type),
+       unique(hyper_df2$decay_class),
+       unique(hyper_df2$height_bin),
+       unique(hyper_df2$tree_type)))))
+
+#prep dummy table for for() loop
+hyper_data_wide <- as.data.frame(matrix(NA,ncol=2+uni_cols,nrow=1))
+colnames(hyper_data_wide) <- c("species","plot",unique(c(unique(hyper_df2$substrate),
+       unique(hyper_df2$where),
+       unique(hyper_df2$foraging_type),
+       unique(hyper_df2$decay_class),
+       unique(hyper_df2$height_bin),
+       unique(hyper_df2$tree_type))))
+
+#loops needed are length of uni
+uni <- unique(hyper_df2[, c("species", "plot")])
+
+# Loop through each uniqu combo of species and plot
+for(i in 1:nrow(uni)) {
+  current_species <- uni$species[i]
+  current_plot <- uni$plot[i]
+  
+    # Subset data for this combination
+  subset_data <- hyper_df2[hyper_df2$species == current_species & 
+                           hyper_df2$plot == current_plot, ]
+hyper_data_wide_temp <- as.data.frame(matrix(NA,ncol=2+uni_cols,nrow=1))
+colnames(hyper_data_wide_temp) <- c("species","plot",unique(c(unique(hyper_df2$substrate),
+       unique(hyper_df2$where),
+       unique(hyper_df2$foraging_type),
+       unique(hyper_df2$decay_class),
+       unique(hyper_df2$height_bin),
+       unique(hyper_df2$tree_type))))
+
+
+
+      # Calculate proportion time for each unique w value (substrate)
+time_by_group <- subset_data %>%
+  group_by(substrate) %>%
+  summarise(prop_time = sum(time)/sum(subset_data$time))
+
+# Fill into other dataframe where column names match w values
+for(h in 1:nrow(time_by_group)) {
+  w_value <- time_by_group$substrate[h]
+  time_value <- time_by_group$prop_time[h]
+  
+  # If hyper_data_wide_temp has a column with that w value name
+  if(w_value %in% names(hyper_data_wide_temp)) {
+    hyper_data_wide_temp[[w_value]] <- time_value
+  }
+}#end for loop
+
+
+
+
+
+
+# where
+time_by_group <- subset_data %>%
+  group_by(where) %>%
+  summarise(prop_time = sum(time)/sum(subset_data$time))
+
+# Fill into other dataframe where column names match w values
+for(h in 1:nrow(time_by_group)) {
+  w_value <- time_by_group$where[h]
+  time_value <- time_by_group$prop_time[h]
+  
+  # If hyper_data_wide_temp has a column with that w value name
+  if(w_value %in% names(hyper_data_wide_temp)) {
+    hyper_data_wide_temp[[w_value]] <- time_value
+  }
+}#end for loop
+
+
+
+
+
+# foraging
+time_by_group <- subset_data %>%
+  group_by(foraging_type) %>%
+  summarise(prop_time = sum(time)/sum(subset_data$time))
+
+# Fill into other dataframe where column names match w values
+for(h in 1:nrow(time_by_group)) {
+  w_value <- time_by_group$foraging_type[h]
+  time_value <- time_by_group$prop_time[h]
+  
+  # If hyper_data_wide_temp has a column with that w value name
+  if(w_value %in% names(hyper_data_wide_temp)) {
+    hyper_data_wide_temp[[w_value]] <- time_value
+  }
+}#end for loop
+
+
+
+
+
+
+#decay_class
+
+time_by_group <- subset_data %>%
+  group_by(decay_class) %>%
+  summarise(prop_time = sum(time)/sum(subset_data$time))
+
+# Fill into other dataframe where column names match w values
+for(h in 1:nrow(time_by_group)) {
+  w_value <- time_by_group$decay_class[h]
+  time_value <- time_by_group$prop_time[h]
+  
+  # If hyper_data_wide_temp has a column with that w value name
+  if(w_value %in% names(hyper_data_wide_temp)) {
+    hyper_data_wide_temp[[w_value]] <- time_value
+  }
+}#end for loop
+
+
+
+
+
+#height bin
+
+time_by_group <- subset_data %>%
+  group_by(height_bin) %>%
+  summarise(prop_time = sum(time)/sum(subset_data$time))
+
+# Fill into other dataframe where column names match w values
+for(h in 1:nrow(time_by_group)) {
+  w_value <- time_by_group$height_bin[h]
+  time_value <- time_by_group$prop_time[h]
+  
+  # If hyper_data_wide_temp has a column with that w value name
+  if(w_value %in% names(hyper_data_wide_temp)) {
+    hyper_data_wide_temp[[w_value]] <- time_value
+  }
+}#end for loop
+
+#height bin
+
+time_by_group <- subset_data %>%
+  group_by(tree_type) %>%
+  summarise(prop_time = sum(time)/sum(subset_data$time))
+
+# Fill into other dataframe where column names match w values
+for(h in 1:nrow(time_by_group)) {
+  w_value <- time_by_group$tree_type[h]
+  time_value <- time_by_group$prop_time[h]
+  
+  # If hyper_data_wide_temp has a column with that w value name
+  if(w_value %in% names(hyper_data_wide_temp)) {
+    hyper_data_wide_temp[[w_value]] <- time_value
+  }
+}#end for loop
+
+
+
+# add uni info
+hyper_data_wide_temp$species <- current_species
+hyper_data_wide_temp$plot <- current_plot
+
+  #bind to hyper_data_wide
+  hyper_data_wide <- rbind(hyper_data_wide,hyper_data_wide_temp)
+  
+}#end for loop
+
+hyper_data_wide <- hyper_data_wide %>%
+  filter(if_any(everything(), ~ !is.na(.))) %>%  # keep rows with at least one non-NA
+  replace(is.na(.), 0)  # replace remaining NAs with 0
+
+
+
+
+#########################
+#####  Ordinations  #####
+
+data_df <- hyper_data_wide %>%
+  select(-species,-plot)
+
+birds <- vegdist(data_df, "bray")
+
+
+### PCoA
+
+pcoa_result <- cmdscale(birds, eig = TRUE, k = 5) # k = number of dimensions
+#pcoa_result <- ape::pcoa(birds)
+
+
+# see contributions
+cont <- cor(data_df,pcoa_result$points)
+# plot the skree line
+eigenvalues <- pcoa_result$eig[1:5]
+propVar <- eigenvalues/sum(eigenvalues)
+cumVar <- cumsum(propVar)
+PCoA_Table <- cbind(eigenvalues, propVar, cumVar)
+PCoA_Table
+plot(eigenvalues)
+lines(lowess(eigenvalues))
+
+pcoa_result <- cmdscale(birds, eig = TRUE, k = 3) # k = number of dimensions
+pcoa_scores <- pcoa_result$points
+
+pcoa_df <- data.frame(pcoa_scores, sp=hyper_data_wide$species)
+RCWO <- as.matrix(pcoa_df[pcoa_df$sp=="RCWO", 1:3])
+RBWO <- as.matrix(pcoa_df[pcoa_df$sp=="RBWO", 1:3])
+RHWO <- as.matrix(pcoa_df[pcoa_df$sp=="RHWO", 1:3])
+DOWO <- as.matrix(pcoa_df[pcoa_df$sp=="DOWO", 1:3])
+NOFL <- as.matrix(pcoa_df[pcoa_df$sp=="NOFL", 1:3])
+PIWO <- as.matrix(pcoa_df[pcoa_df$sp=="PIWO", 1:3])
+
+hv_RCWO <- hypervolume_box(RCWO)
+hv_RBWO <- hypervolume_box(RBWO)
+hv_RHWO <- hypervolume_box(RHWO)
+hv_DOWO <- hypervolume_box(DOWO)
+hv_NOFL <- hypervolume_box(NOFL)
+hv_PIWO <- hypervolume_box(PIWO)
+
+overlap <- hypervolume_overlap_statistics(hypervolume_set(hv_RCWO, hv_RBWO, check.memory=FALSE,verbose=T))
+
+plot(hypervolume_set(hv_RCWO, hv_RBWO, check.memory=FALSE,verbose=T), pairplot=TRUE)
+
+
+# Extract points from hypervolumes
+df_a <- data.frame(hv_RCWO@RandomPoints, rank="A")
+df_b <- data.frame(hv_RBWO@RandomPoints, rank="B")
+df_all <- rbind(df_a, df_b)
+
+# Plot first 2 PCoA axes
+ggplot(df_all, aes(x=X1, y=X2, color=rank, fill=rank)) +
+  geom_point(alpha=0.3) +
+  stat_ellipse(level=0.95, geom="polygon", alpha=0.2) +
+  theme_minimal() +
+  labs(x="PCoA1", y="PCoA2")
+
+hv_list <- hypervolume_join(hv_RCWO, hv_RBWO, hv_RHWO, hv_DOWO, hv_NOFL, hv_PIWO)
+
+# Visualize (3D)
+#plot(hv_list, 
+#     pairwise = TRUE,
+#     colors = c("#08306B", "#4A1486", "#67000D","gray20","#B8860B","#006D2C"),
+#     show.3d = TRUE)
+
+# visualize (2D)
+plot(hv_RCWO, col=rgb(1,0,0,0.3), pch=16)  # Red, semi-transparent
+plot(hv_RBWO, col=rgb(0,0,1,0.3), pch=16, add=TRUE)  # Blue, overlay
+legend("topright", legend=c("RCWO", "RBWO"), 
+       col=c(rgb(1,0,0,0.3), rgb(0,0,1,0.3)), pch=16)
+```
+
+
 This page was updated:
 ```{r}
 #| echo: false
