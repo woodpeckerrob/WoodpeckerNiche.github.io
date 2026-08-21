@@ -20,8 +20,11 @@ Avian communities are often sampled with point count surveys, and for good reaso
   library(cowplot)
   library(knitr)
   library(tidyr)
+  
   #library(Distance)
   library(spAbundance)
+  library(unmarked)
+
   library(purrr)
   library(lubridate)
   library(ggplot2)
@@ -29,7 +32,7 @@ Avian communities are often sampled with point count surveys, and for good reaso
   library(lubridate)
   library(abind)
   library(suncalc)
-
+  library(stringr)
 }
 
 funk <- function(x){length(unique(x))}
@@ -38,7 +41,7 @@ funk <- function(x){length(unique(x))}
 
 ```
 
-```{r}
+```{r spAbundance}
 #| echo: false
 #| include: false
 #| message: false
@@ -52,18 +55,42 @@ sites <- read.csv("C:\\Users\\rmeyer\\Documents\\WoodpeckerNiche\\docs\\data\\ra
 truncation_dist <- 200
 
 # Filter and prepare data
+
+pc <- pc%>%
+    mutate(date = mdy(date)) %>%
+    filter(date < as.Date("2026-07-01"))%>%                # remove this once I get July data
+    filter(!(date >= "2025-07-01" & date <= "2025-08-31")) # remove this once I get July data
+
 pc <- pc %>%
   filter(!is.na(real_distance_m)) %>%
   filter(!species %in% c("YBSA", "WODU","BASP")) %>%
+  filter(!species %in% c("HAWO")) %>%        # removing species detected less than 5% of the time, includes NOFL
+  filter(date > as.Date("2025-03-31"))%>%            # remove march data
+  mutate(julian_day = lubridate::yday(date))%>%          #for consistency
   left_join(sites, by = "point_id") %>%
-  mutate(date = mdy(date)) %>%
   group_by(point_id, date) %>%
   mutate(visit_date = first(date)) %>%
   ungroup() %>%
+  mutate(double_obs = str_replace_all(double_obs, "n", ""))%>% #for consistency
+  mutate(double_obs = tolower(double_obs))%>%                  #for consistency
+  mutate(DO_sp_matching = tolower(DO_sp_matching))%>%          #for consistency
+  select(-angle,-distance_cm,-comments)%>%
   arrange(point_id, visit_date) %>%
   group_by(point_id) %>%
   mutate(visit = dense_rank(visit_date)) %>%
+  ungroup()%>%
+  mutate(year=format(date,"%Y"))
+
+#remove second visit (the middle visit in April that is extra)
+
+pc <- pc %>%
+  filter(visit!=2) %>%
+  arrange(point_id, visit_date) %>%  #re-rank the visits
+  group_by(point_id,year) %>%
+  mutate(visit = dense_rank(visit_date)) %>%
   ungroup()
+
+
 
 # Only keep primary observer’s double observer records
 do <- pc %>%
@@ -72,6 +99,7 @@ do <- pc %>%
 pc <- pc %>%
   filter(double_obs == "") %>%
   bind_rows(do)
+pc <- pc%>% select(-double_obs,-DO_sp_matching) #don't need it anymore
 
 # add time since dawn
 pc <- pc %>%
@@ -87,7 +115,8 @@ pc <- pc %>%
   left_join(sun, by = "date")
 pc <- pc %>%
   mutate(time_since_sunrise =
-           as.numeric(difftime(datetime, sunrise, units = "mins")))
+           as.numeric(difftime(datetime, sunrise, units = "mins")))%>%
+  mutate(year=format(date,"%Y"))
 
 #remove EM, does this improve estimates?
 #pc <- pc %>%
@@ -95,8 +124,15 @@ pc <- pc %>%
 
 # Encode point_id as numeric
 pc$point_id <- as.numeric(pc$point_id)
+pc$year <- as.factor(pc$year)
 #pc$site_name <- as.numeric(as.factor(pc$site_name))
 
+
+
+# combine year and point ID, spAbundance can't handle years otherwise
+
+pc$point <- as.factor(pc$point_id)
+pc$point_id <- as.numeric(paste0(pc$year,pc$point_id))
 # Define species, sites, and number of replicates
 species_list <- unique(pc$species)
 site_list <- unique(pc$point_id)
@@ -125,21 +161,40 @@ for (s in seq_along(species_list)) {
   }
 }
 
+# check for 0 inflation
+# Calculate observed vs expected zeros under Poisson
+observed_counts <- y_array[species_list, , ]  # For a specific species
+n_zeros_obs <- sum(observed_counts == 0, na.rm = TRUE)
+n_total <- sum(!is.na(observed_counts))
 
+# Compare to expected under fitted model
+lambda <- mean(observed_counts, na.rm = TRUE)
+n_zeros_exp <- n_total * dpois(0, lambda)
+
+cat("Observed zeros:", n_zeros_obs, "\n")
+cat("Expected zeros (Poisson):", round(n_zeros_exp), "\n")
+cat("Ratio:", n_zeros_obs / n_zeros_exp, "\n")
+# Ratio > 1.5 suggests zero-inflation
+
+#detection_counts <- apply(y, 1, sum, na.rm = TRUE)
+#keep_species <- detection_counts >= 20  # Adjust threshold
+#y_filtered <- y[keep_species, , ]
 
 # Create detection covariates for each point_id × visit
 
 det_covs <- pc %>%
+  arrange(point_id, visit)%>%
   group_by(point_id, visit) %>%
   summarize(wind = first(wind),
             sky = first(sky),
             observer = first(observer), 
             time_since_sunrise = first(time_since_sunrise),
-            .groups = "drop") %>%
-  arrange(point_id, visit)
+            julian_day=first(julian_day),
+            .groups = "drop") 
 
 det_covs_matrix <- det_covs %>%
-  pivot_wider(names_from = visit, values_from = c(wind, sky, observer,time_since_sunrise)) %>%
+  pivot_wider(names_from = visit, values_from = c(wind, sky, observer,
+                                                  time_since_sunrise,julian_day)) %>%
   arrange(point_id)
 
 wind_mat <- det_covs_matrix %>%
@@ -164,28 +219,51 @@ sun_mat <- det_covs_matrix %>%
   as.matrix()
 sun_mat[is.na(sun_mat)] <- 0
 
+jul_mat <- det_covs_matrix %>%
+  select(starts_with("julian_")) %>%
+  as.matrix()
+jul_mat[is.na(jul_mat)] <- 0
+
 det_covs_list <- list(
   wind = wind_mat,
   sky = sky_mat,
   observer = observer_mat,
-  time_since_dawn = sun_mat
+  time_since_dawn = sun_mat,
+  julian_day = jul_mat
 )
 
 site_covs <- pc %>%
-  select(point_id, site_name) %>%
+  select(point_id, site_name,year,point) %>%
   distinct() %>%
   arrange(point_id)
 
 site_covs <- site_covs %>%
   filter(point_id %in% site_list) %>%
-  arrange(factor(point_id, levels = site_list))
+  arrange(year,factor(point_id, levels = site_list))
 
 site_covs <- site_covs %>%
-  select(site_name)
+  select(site_name,year,point)
+
+
+
+
+
+
+# check for missing
+# Check visits per point_id
+visit_counts <- pc %>%
+  group_by(point_id, year) %>%
+  summarise(n_visits = n_distinct(visit), .groups = "drop")
+
+#print(visit_counts)
+
+
+### end check
+
 
 # Abundance and detection formulas
-abund_formula <- ~ site_name 
-det_formula <- ~ wind + sky + observer #+ time_since_dawn  # this made some species get way overestimated
+abund_formula <- ~  point+year#site_name # year may have to be a plot-year combo because Nmixture assumes closed populations, so differences between seasons is not accounted for in a meaningful way. maybe
+det_formula <- ~ observer+wind + sky  +julian_day#+ time_since_dawn  # this made some species get way overestimated 
 
 # Package data for spAbundance
 data_list <- list(
@@ -194,17 +272,43 @@ data_list <- list(
   abund.covs = site_covs
 )
 
-# Priors and tuning can be kept the same
 priors <- list(
-  beta.comm.normal = list(0, 100),
-  alpha.comm.normal = list(0, 100),
-  tau.sq.beta.ig = list(0.1, 0.1),
+  # beta is for abundance covariates
+  beta.comm.normal = list(0,100),#0, 100), #mean and varaince
+  # alpha is for detection covariates
+  alpha.comm.normal = list(mean = c(0,    #prior on intercept
+                                    0,    # prior on observer
+                                    0,
+                                    -0.5, #weak negative prior on detection covariats of wind, sky and time since sunrise
+                                    -0.5,
+                                    -0.5), 
+                           var = c(100, #not confident about intercept
+                                   100, #not confident about observer
+                                   100,
+                                   10,  #weakly confident about directionality of wind, sky and time since dawn
+                                   10,
+                                   10)),
+  tau.sq.beta.ig = list(0.1, 0.1), #0.1 is default, value of 1 is more similar, value of 0.01 is pretty uninformative, could vary between species for abundance
   tau.sq.alpha.ig = list(0.1, 0.1),
-  sigma.sq.mu.ig = list(0.1, 0.1),
-  sigma.sq.p.ig = list(0.1, 0.1)
+  sigma.sq.mu.ig = list(0.1, 0.1), #for random effects on abundance
+  sigma.sq.p.ig = list(0.1, 0.1)   #for random effects on detection
 )
 
-# Fit the N-mixture model
+site_covs_expanded <- site_covs[rep(1:n_sites, times = length(unique(pc$year))), ]
+n_beta  <- ncol(model.matrix(abund_formula, data = site_covs_expanded))
+
+n_alpha <- 6
+
+inits.list <- list(
+  beta.comm = 0,
+  alpha.comm = 0,
+  beta = matrix(0, nrow = length(species_list), ncol = n_beta),
+  alpha = matrix(0, nrow = length(species_list), ncol = n_alpha),
+  N = apply(y_array, c(1, 2), max, na.rm = TRUE)#   
+)
+#dim(apply(y_array, c(1, 2), max, na.rm = TRUE))
+
+# Fit the multi-species N-mixture model
 out_nmix <- msNMix(
   abund.formula = abund_formula,
   det.formula = det_formula,
@@ -214,27 +318,43 @@ out_nmix <- msNMix(
     beta = 0.1,
     alpha = 0.1
   ),
-  inits = list(),
-  n.batch = 1000,  #2000 can do more but similar results
-  batch.length = 10,
+  inits = inits.list,
+  n.batch = 1000,  #3000
+  batch.length = 25,
   accept.rate = 0.43,
   family = "Poisson",
   n.omp.threads = 1,
   verbose = TRUE,
-  n.report = 50,
-  n.burn = 200,
-  n.thin = 2,
-  n.chains = 1 # can do 2 but similar results
+  n.report = 100,
+  n.burn = 500, # 2500
+  n.thin = 2,   # 5
+  n.chains = 2 # 3
 )
 
 globalmod <- (out_nmix)
 
+# Check detection probabilities
+summary(out_nmix)  # Look at detection parameter estimates
+#det_probs <- predict(out_nmix, type = "detection", X.0 = out_nmix$X, X.p.0 = out_nmix$X.p)
+alpha_intercepts <- out_nmix$alpha.samples[, grep("\\(Intercept\\)", colnames(out_nmix$alpha.samples))]
+
+# Mean detection probability by species (at average covariate values)
+
+#mean_det_by_species <- apply(alpha_intercepts, 2, function(x) mean(plogis(x)))
+#names(mean_det_by_species) <- out_nmix$sp.names
+#print(mean_det_by_species) # NOFL has 0.042 and HAWO has 0.015 for detection prob, removing those
+
+
+# check trace plot
+#plot(out_nmix$beta.samples[, 1], type = "l", ylab = "Parameter value", xlab = "Iteration", main = "Trace plot")
+
+
+
 # Extract the summary output
 
 fit_vals <- fitted(out_nmix, type = "marginal")
-
-
-
+# Check which species have issues
+#fit_vals$y.rep.samples  # Abundance samples by species and site
 # Step 1: Sum over visits (4th dim) → iterations × species × site
 total_abundance <- apply(fit_vals$y.rep.samples, c(1, 2, 3), sum)
 
@@ -261,9 +381,10 @@ for (s in 1:n_species) {
 
 df_plot <- do.call(rbind, summary_list)
 
-
-
-
+df_plot$year <- substr(df_plot$point_id, 1, 4)
+df_plot <- subset(df_plot,df_plot$year=="2025")
+df_plot$point_id <- substring(df_plot$point_id, 5)
+df_plot$point_id <- as.numeric(df_plot$point_id)
 ```
 
 ## Summary plots for results thus far...
@@ -292,6 +413,14 @@ ggplot(df_plot, aes(x = factor(point_id), y = mean, fill = species)) +
              color = "black", linewidth=1.5)+
   geom_vline(xintercept = 23.5, linetype="dotted", 
              color = "black", linewidth=1.5)+
+  #geom_vline(xintercept = 32.5, linetype="dotted", 
+  #           color = "black", linewidth=1.5)+
+  #geom_vline(xintercept = 39.5, linetype="dotted", 
+  #           color = "black", linewidth=1.5)+
+  #geom_vline(xintercept = 46.5, linetype="dotted", 
+  #           color = "black", linewidth=1.5)+
+  #geom_vline(xintercept = 55.5, linetype="dotted", 
+  #           color = "black", linewidth=1.5)+
   ylim(0,30)+
   scale_y_continuous(expand=c(0, 0))+ 
   labs(x = "Point ID", y = "Estimated Abundance", fill = "Species") +
@@ -322,8 +451,8 @@ pc_clean <- pc %>%
 
 # Step 1: Keep only the FIRST detection per species per visit (point_id + visit)
 pc_unique <- pc_clean %>%
-  arrange(point_id, visit, species, time_mins) %>%
-  group_by(point_id, visit, species) %>%
+  arrange(point, visit, species, time_mins) %>%
+  group_by(point, visit, species) %>%
   slice_head(n = 1) %>%  # keep only first detection per species per visit
   ungroup()
 
@@ -336,7 +465,7 @@ pc_binned <- pc_unique %>%
 
 # Step 3: Count number of species per visit per time bin
 richness_per_visit <- pc_binned %>%
-  group_by(point_id, visit, time_bin) %>%
+  group_by(point, visit, time_bin) %>%
   summarise(richness = n_distinct(species), .groups = "drop")
 
 # Step 4: Pivot and calculate cumulative richness
@@ -350,7 +479,7 @@ time_bin_order <- c("0-2", "2-4", "4-6", "6-8", "8-10")
 
 # Extract just the time bin values, do row-wise cumsum, and bind back
 richness_cum <- richness_wide %>%
-  select(point_id, visit, all_of(time_bin_order)) %>%
+  select(point, visit, all_of(time_bin_order)) %>%
   mutate(across(all_of(time_bin_order), as.numeric))  # ensure numeric just in case
 
 # Apply row-wise cumsum to only the bin columns
@@ -358,7 +487,7 @@ cumulative_bins <- t(apply(richness_cum[time_bin_order], 1, cumsum))  # returns 
 
 # Bind back to original identifiers
 richness_cum_final <- bind_cols(
-  richness_wide %>% select(point_id, visit),
+  richness_wide %>% select(point, visit),
   as.data.frame(cumulative_bins)
 )
 
@@ -375,7 +504,7 @@ head(richness_cum_final)
 
 # Step 5: Average across visits per point
 richness_mean_by_plot <- richness_cum_final %>%
-  group_by(point_id) %>%
+  group_by(point) %>%
   summarise(across(`0-2`:`8-10`, mean), .groups = "drop")
 
 # Reshape to long format for plotting
@@ -398,7 +527,7 @@ richness_overall <- richness_long %>%
 #| message: false
 
 #plot the curve
-ggplot(richness_long, aes(x = TimeBin, y = MeanRichness, group = factor(point_id), color = factor(point_id))) +
+ggplot(richness_long, aes(x = TimeBin, y = MeanRichness, group = factor(point), color = factor(point))) +
   geom_line(alpha = 0.3) +
   geom_line(data = richness_overall, aes(x = TimeBin, y = MeanRichness, group = 1), color = "black", size = 1.5) +
   labs(
@@ -406,7 +535,7 @@ ggplot(richness_long, aes(x = TimeBin, y = MeanRichness, group = factor(point_id
     x = "Time Bin (min)",
     y = "Mean Cumulative Species Richness"
   ) +
-  scale_y_continuous(breaks = c(0:7),limits = c(0, 7), expand = c(0, 0))+
+  scale_y_continuous(breaks = c(0:10),limits = c(0, 10), expand = c(0, 0))+
   theme_bw() +
   theme(legend.position = "none")
 ```

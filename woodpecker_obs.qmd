@@ -409,6 +409,7 @@ hist
 ```{r}
 #| echo: false
 #| message: false
+#| include: false
 #organize table for this next part
 # Summarize the data by month, species, and plot
 summary_table <- df %>%
@@ -427,6 +428,7 @@ pivoted_data <- summary_table %>%
 ```{r}
 #| echo: false
 #| message: false
+#| include: false
 
 tab <- subset(pivoted_data,pivoted_data$month==3)
 tab$month <- NULL
@@ -444,6 +446,7 @@ if (length(zero_sum_columns) > 0) {
 ```{r}
 #| echo: false
 #| message: false
+#| include: false
 print(kable(tab, caption = paste("March observations by species and plot")))
 ```
 
@@ -452,6 +455,7 @@ print(kable(tab, caption = paste("March observations by species and plot")))
 ```{r}
 #| echo: false
 #| message: false
+#| include: false
 
 tab <- subset(pivoted_data,pivoted_data$month==4)
 tab$month <- NULL
@@ -469,6 +473,7 @@ if (length(zero_sum_columns) > 0) {
 ```{r}
 #| echo: false
 #| message: false
+#| include: false
 print(kable(tab, caption = paste("April observations by species and plot")))
 ```
 
@@ -477,6 +482,7 @@ print(kable(tab, caption = paste("April observations by species and plot")))
 ```{r}
 #| echo: false
 #| message: false
+#| include: false
 
 tab <- subset(pivoted_data,pivoted_data$month==5)
 tab$month <- NULL
@@ -494,6 +500,7 @@ if (length(zero_sum_columns) > 0) {
 ```{r}
 #| echo: false
 #| message: false
+#| include: false
 print(kable(tab, caption = paste("May observations by species and plot")))
 ```
 
@@ -502,6 +509,7 @@ print(kable(tab, caption = paste("May observations by species and plot")))
 ```{r}
 #| echo: false
 #| message: false
+#| include: false
 
 tab <- subset(pivoted_data,pivoted_data$month==6)
 tab$month <- NULL
@@ -519,6 +527,7 @@ if (length(zero_sum_columns) > 0) {
 ```{r}
 #| echo: false
 #| message: false
+#| include: false
 print(kable(tab, caption = paste("June observations by species and plot")))
 ```
 
@@ -527,6 +536,7 @@ print(kable(tab, caption = paste("June observations by species and plot")))
 ```{r}
 #| echo: false
 #| message: false
+#| include: false
 
 tab <- subset(pivoted_data,pivoted_data$month==7)
 tab$month <- NULL
@@ -544,6 +554,7 @@ if (length(zero_sum_columns) > 0) {
 ```{r}
 #| echo: false
 #| message: false
+#| include: false
 print(kable(tab, caption = paste("July observations by species and plot")))
 ```
 
@@ -552,6 +563,7 @@ print(kable(tab, caption = paste("July observations by species and plot")))
 ```{r}
 #| echo: false
 #| message: false
+#| include: false
 
 tab <- subset(pivoted_data,pivoted_data$month==8)
 tab$month <- NULL
@@ -569,6 +581,8 @@ if (length(zero_sum_columns) > 0) {
 ```{r}
 #| echo: false
 #| message: false
+#| include: false
+
 print(kable(tab, caption = paste("August observations by species and plot")))
 ```
 
@@ -1124,6 +1138,7 @@ hyper_df2$tree_type[hyper_df2$substrate == "air"] <- "NA"
 
 hyper_df2 <- subset(hyper_df2,hyper_df2$species!="HAWO")  #remove HAWO for now
 hyper_df2$month <- NULL
+
 #hyper_df2$foraging_type <- NULL
 
 
@@ -1303,39 +1318,63 @@ hyper_data_wide <- hyper_data_wide %>%
 #########################
 #####  Ordinations  #####
 
-data_df <- hyper_data_wide %>%
-  select(-species,-plot)
+#data_df <- hyper_data_wide %>%
+#  select(-species,-plot)
 
-birds <- vegdist(data_df, "bray")
+#birds <- vegdist(data_df, "bray")
 
 
 ### PCoA
 
-pcoa_result <- cmdscale(birds, eig = TRUE, k = 5) # k = number of dimensions
-#pcoa_result <- ape::pcoa(birds)
-
-
+#pcoa_result <- cmdscale(birds, eig = TRUE, k = 5) # k = number of dimensions
 # see contributions
-cont <- cor(data_df,pcoa_result$points)
+#cont <- cor(data_df,pcoa_result$points)
 # plot the skree line
-eigenvalues <- pcoa_result$eig[1:5]
-propVar <- eigenvalues/sum(eigenvalues)
-cumVar <- cumsum(propVar)
-PCoA_Table <- cbind(eigenvalues, propVar, cumVar)
-PCoA_Table
-plot(eigenvalues)
-lines(lowess(eigenvalues))
+#eigenvalues <- pcoa_result$eig[1:5]
+#propVar <- eigenvalues/sum(eigenvalues)
+#cumVar <- cumsum(propVar)
+#PCoA_Table <- cbind(eigenvalues, propVar, cumVar)
+#PCoA_Table
+#plot(eigenvalues)
+#lines(lowess(eigenvalues))
 
-pcoa_result <- cmdscale(birds, eig = TRUE, k = 3) # k = number of dimensions
-pcoa_scores <- pcoa_result$points
+#pcoa_result <- cmdscale(birds, eig = TRUE, k = 3) # k = number of dimensions
+#pcoa_scores <- pcoa_result$points
 
-pcoa_df <- data.frame(pcoa_scores, sp=hyper_data_wide$species)
-RCWO <- as.matrix(pcoa_df[pcoa_df$sp=="RCWO", 1:3])
-RBWO <- as.matrix(pcoa_df[pcoa_df$sp=="RBWO", 1:3])
-RHWO <- as.matrix(pcoa_df[pcoa_df$sp=="RHWO", 1:3])
-DOWO <- as.matrix(pcoa_df[pcoa_df$sp=="DOWO", 1:3])
-NOFL <- as.matrix(pcoa_df[pcoa_df$sp=="NOFL", 1:3])
-PIWO <- as.matrix(pcoa_df[pcoa_df$sp=="PIWO", 1:3])
+#pcoa_df <- data.frame(pcoa_scores, sp=hyper_data_wide$species)
+#RCWO <- as.matrix(pcoa_df[pcoa_df$sp=="RCWO", 1:3])
+#RBWO <- as.matrix(pcoa_df[pcoa_df$sp=="RBWO", 1:3])
+#RHWO <- as.matrix(pcoa_df[pcoa_df$sp=="RHWO", 1:3])
+#DOWO <- as.matrix(pcoa_df[pcoa_df$sp=="DOWO", 1:3])
+#NOFL <- as.matrix(pcoa_df[pcoa_df$sp=="NOFL", 1:3])
+#PIWO <- as.matrix(pcoa_df[pcoa_df$sp=="PIWO", 1:3])
+
+# PCA (transformation)
+data_df <- hyper_data_wide %>%
+  select(-species,-plot,-other,-`0`)
+
+comp_df <- compositions::acomp(data_df)
+clr_df <- compositions::clr(comp_df)
+clr_df <- as.data.frame(clr_df)
+
+#check multivariate normality
+mvn_result <- MVN::mvn(data=clr_df)
+mvnormtest::mshapiro.test(t(clr_df))  # requires transposed data, max 5000 obs
+
+# PCA
+pca_result <- prcomp(clr_df, scale. = FALSE, center = TRUE)
+plot(pca_result, type = "l") #skree plot
+biplot(pca_result)
+
+pca_scores <- as.data.frame(pca_result$x[,1:3])
+
+pca_df <- data.frame(pca_scores, sp=hyper_data_wide$species)
+RCWO <- as.matrix(pca_df[pca_df$sp=="RCWO", 1:3])
+RBWO <- as.matrix(pca_df[pca_df$sp=="RBWO", 1:3])
+RHWO <- as.matrix(pca_df[pca_df$sp=="RHWO", 1:3])
+DOWO <- as.matrix(pca_df[pca_df$sp=="DOWO", 1:3])
+NOFL <- as.matrix(pca_df[pca_df$sp=="NOFL", 1:3])
+PIWO <- as.matrix(pca_df[pca_df$sp=="PIWO", 1:3])
 
 hv_RCWO <- hypervolume_box(RCWO)
 hv_RBWO <- hypervolume_box(RBWO)
@@ -1355,19 +1394,16 @@ df_b <- data.frame(hv_RBWO@RandomPoints, rank="B")
 df_all <- rbind(df_a, df_b)
 
 # Plot first 2 PCoA axes
-ggplot(df_all, aes(x=X1, y=X2, color=rank, fill=rank)) +
+ggplot(df_all, aes(x=PC1, y=PC2, color=rank, fill=rank)) +
   geom_point(alpha=0.3) +
   stat_ellipse(level=0.95, geom="polygon", alpha=0.2) +
   theme_minimal() +
-  labs(x="PCoA1", y="PCoA2")
+  labs(x="PC1", y="PC2")
 
 hv_list <- hypervolume_join(hv_RCWO, hv_RBWO, hv_RHWO, hv_DOWO, hv_NOFL, hv_PIWO)
 
 # Visualize (3D)
-#plot(hv_list, 
-#     pairwise = TRUE,
-#     colors = c("#08306B", "#4A1486", "#67000D","gray20","#B8860B","#006D2C"),
-#     show.3d = TRUE)
+plot(hv_list, pairwise = TRUE, colors = c("#08306B", "#4A1486", "#67000D","gray20","#B8860B","#006D2C"), show.3d = TRUE,show.density = T)
 
 # visualize (2D)
 plot(hv_RCWO, col=rgb(1,0,0,0.3), pch=16)  # Red, semi-transparent
